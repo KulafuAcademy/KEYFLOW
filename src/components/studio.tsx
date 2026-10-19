@@ -30,7 +30,15 @@ import {
   Type,
   Zap,
 } from "lucide-react";
-import { drills, passages, prompts } from "@/lib/content";
+import dynamic from "next/dynamic";
+import {
+  visualCategories,
+  visualQuestions,
+  questionsInCategory,
+  randomVisualQuestion,
+  type VisualCategory,
+} from "@/lib/task1-visuals";
+import { drills, passages, prompts, type Prompt } from "@/lib/content";
 import {
   addedMistakes,
   elapsedMs,
@@ -51,6 +59,11 @@ import {
   type Mode,
   type Session,
 } from "@/lib/storage";
+
+const QuestionVisual = dynamic(() => import("./question-visual"), {
+  loading: () => <p className="visual-hint">Loading question visual…</p>,
+});
+const writingPrompts: Prompt[] = [...prompts, ...visualQuestions];
 
 type View = Mode | "progress";
 const labels: Record<Mode, string> = {
@@ -143,7 +156,19 @@ export default function Studio() {
   const exercise = (mode === "copy" ? passages : drills)[
     index % (mode === "copy" ? passages.length : drills.length)
   ];
-  const prompt = prompts.find((p) => p.id === promptId)!;
+  const prompt = writingPrompts.find((p) => p.id === promptId)!;
+  const [visualCategory, setVisualCategory] = useState<VisualCategory | "all">(
+    "all",
+  );
+  const lastBasicPrompt = useRef("w1"),
+    lastVisualPrompt = useRef(visualQuestions[0].id);
+  const visualPractice = prompt.task === 1 && !!prompt.visual;
+  const availablePrompts = visualPractice
+    ? [
+        ...questionsInCategory(visualCategory),
+        ...prompts.filter((p) => p.task === 2),
+      ]
+    : prompts;
   const limit =
     mode === "writing"
       ? (prompt.task === 1 ? 20 : 40) * 60000
@@ -364,7 +389,7 @@ export default function Studio() {
   }
   function restore(id: string) {
     const d = read<Record<string, Draft>>(KEYS.drafts, {}, validDrafts)[id];
-    const p = prompts.find((x) => x.id === id)!;
+    const p = writingPrompts.find((x) => x.id === id)!;
     const max = (p.task === 1 ? 20 : 40) * 60000;
     const ms = Math.min(d?.elapsed || 0, max);
     const state = d
@@ -384,6 +409,12 @@ export default function Studio() {
     sessionId.current = crypto.randomUUID();
   }
   function selectPrompt(id: string) {
+    if (id === promptId) return;
+    const next = writingPrompts.find((p) => p.id === id)!;
+    if (next.task === 1) {
+      if (next.visual) lastVisualPrompt.current = id;
+      else lastBasicPrompt.current = id;
+    }
     leave();
     setPromptId(id);
     restore(id);
@@ -905,7 +936,7 @@ export default function Studio() {
                       }}
                     >
                       {(mode === "writing"
-                        ? prompts
+                        ? availablePrompts
                         : mode === "copy"
                           ? passages
                           : drills
@@ -926,6 +957,78 @@ export default function Studio() {
                     </select>
                   </div>
                 </div>
+                {mode === "writing" && prompt.task === 1 && (
+                  <div
+                    className="task1-tools"
+                    aria-label="Task 1 practice options"
+                  >
+                    <div className="practice-level">
+                      <div
+                        className="segmented"
+                        aria-label="Task 1 practice category"
+                      >
+                        <button
+                          className={!visualPractice ? "chosen" : ""}
+                          aria-pressed={!visualPractice}
+                          onClick={() => selectPrompt(lastBasicPrompt.current)}
+                        >
+                          Basic Practice
+                        </button>
+                        <button
+                          className={visualPractice ? "chosen" : ""}
+                          aria-pressed={visualPractice}
+                          onClick={() => {
+                            setVisualCategory("all");
+                            selectPrompt(lastVisualPrompt.current);
+                          }}
+                        >
+                          Visual Practice
+                        </button>
+                      </div>
+                      <p>
+                        {visualPractice
+                          ? "Interpret realistic visuals. Develop your overview and comparisons."
+                          : "Build typing fluency and writing structure with the original simple questions."}
+                      </p>
+                    </div>
+                    {visualPractice && (
+                      <div className="visual-selection">
+                        <label htmlFor="visual-category">Question type</label>
+                        <select
+                          id="visual-category"
+                          value={visualCategory}
+                          onChange={(e) => {
+                            const category = e.target.value as
+                              VisualCategory | "all";
+                            setVisualCategory(category);
+                            selectPrompt(questionsInCategory(category)[0].id);
+                          }}
+                        >
+                          <option value="all">All visual types (21)</option>
+                          {visualCategories.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.label} (3)
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          className="secondary compact"
+                          onClick={() =>
+                            selectPrompt(
+                              randomVisualQuestion(visualCategory, promptId).id,
+                            )
+                          }
+                        >
+                          Random Question <ArrowRight size={13} />
+                        </button>
+                        <span className="visual-question-count">
+                          {questionsInCategory(visualCategory).length} questions
+                          · saves separately
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
                 {mode === "writing" ? (
                   <div className="writing-layout">
                     <div className="prompt">
@@ -934,6 +1037,15 @@ export default function Studio() {
                       </div>
                       <h2>{prompt.title}</h2>
                       <p>{prompt.question}</p>
+                      {prompt.visual && (
+                        <QuestionVisual
+                          key={prompt.id}
+                          visual={prompt.visual}
+                        />
+                      )}
+                      {prompt.visual && (
+                        <p className="source-note">{prompt.note}</p>
+                      )}
                       {prompt.headers && (
                         <div className="table-scroll">
                           <table className="data-table">
