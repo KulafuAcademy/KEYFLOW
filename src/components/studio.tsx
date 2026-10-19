@@ -562,7 +562,7 @@ export default function Studio() {
                   : "PURPOSEFUL PRACTICE / REAL PROGRESS"}
               </div>
               <h1>
-                {view === "progress" ? "Every session counts." : labels[mode]}
+                {view === "progress" ? "Every session counts" : labels[mode]}
                 <span className="heading-dot">.</span>
               </h1>
               <p>
