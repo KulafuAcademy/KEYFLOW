@@ -17,7 +17,7 @@ Open http://localhost:3000. Production: `npm run build && npm start`.
 
 - **Typing drill:** 8 academic vocabulary, phrase, punctuation, and sentence exercises; 1-, 3-, or 5-minute limits. Finishes on an exact match or timeout.
 - **Copy practice:** 4 original Task 1/2 passages. Finishes on an exact match, with no time limit. Paste/drop is disabled in reference modes so measured results reflect typing.
-- **Writing simulation:** 3 Task 1 prompts with self-contained tables and 4 Task 2 questions; 20/40-minute limits, 150/250-word indicators, per-prompt autosaved drafts, copy and UTF-8 text export. No band scores or invented accuracy.
+- **Writing simulation:** Basic Practice preserves the original 3 Task 1 prompts and tables; Visual Practice adds 21 original questions (3 per type: bar, line, pie, table, process, map, and mixed), with filtering, random selection, and scalable visuals. All 4 Task 2 questions remain unchanged; 20/40-minute limits, 150/250-word indicators, per-prompt autosaved drafts, copy and UTF-8 text export. No band scores or invented accuracy.
 - **Progress:** recent 200 sessions, personal best, speed and accuracy trends, and confirmed history reset. History reset preserves drafts and preferences.
 - Desktop and mobile layouts, light/dark preference, labelled controls, focus handling, and reduced-motion support.
 
@@ -55,7 +55,10 @@ Import `KulafuAcademy/KEYFLOW`, detect **Next.js**, and use `main` as the produc
 - `src/components/studio.tsx`: practice UI and session lifecycle
 - `src/lib/metrics.ts`: pure scoring and timing functions
 - `src/lib/storage.ts`: versioned, validated browser persistence
-- `src/lib/content.ts`: original exercises, passages, and prompts
+- `src/lib/content.ts`: original exercises, passages, and Basic/Task 2 prompts
+- `src/lib/task1-visuals.ts`: 21 typed visual questions and selection helpers
+- `src/components/question-visual.tsx`: lazy SVG charts, diagrams, accessible tables and enlargement
+- `docs/task1-visual-practice.md`: progressive practice and authoring guide
 - `src/app/globals.css`: responsive monochrome design tokens and layouts
 - `tests/metrics.test.ts`: core regression tests
 

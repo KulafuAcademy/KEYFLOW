@@ -1457,3 +1457,434 @@ select {
     font-size: 17px;
   }
 }
+/* Task 1 visual practice: chart paper stays monochrome in both themes. */
+.task1-tools {
+  border-bottom: 1px solid var(--line);
+  padding: 15px 23px;
+  background: var(--sidebar);
+}
+.practice-level {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+.practice-level .segmented {
+  flex-shrink: 0;
+}
+.practice-level .segmented button {
+  font-size: 10px;
+  padding: 7px 12px;
+}
+.practice-level p {
+  font-size: 10px;
+  color: var(--muted);
+}
+.visual-selection {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 13px;
+}
+.visual-selection label {
+  font-size: 10px;
+  color: var(--muted);
+}
+.visual-selection select {
+  max-width: 230px;
+}
+.visual-question-count {
+  font: 8px monospace;
+  color: var(--muted);
+}
+.question-visual {
+  margin-top: 20px;
+  min-width: 0;
+}
+.visual-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.visual-actions > span {
+  font: 7px monospace;
+  color: var(--muted);
+  letter-spacing: 0.5px;
+}
+.visual-actions button {
+  font-size: 9px;
+}
+.visual-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #fff;
+  color: #222;
+  scrollbar-width: thin;
+  max-width: 100%;
+}
+.chart-question {
+  padding: 17px 12px 12px;
+  min-width: 0;
+  color: #222;
+  background: #fff;
+}
+.chart-question h4 {
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.prompt .visual-unit,
+.visual-unit {
+  font-size: 10px;
+  line-height: 1.6;
+  color: #555;
+  margin: 4px 0 10px;
+}
+.visual-svg {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  overflow: visible;
+}
+.visual-svg text {
+  font:
+    15px Arial,
+    Helvetica,
+    sans-serif;
+  fill: #222;
+}
+.visual-svg .axis-label {
+  font-size: 14px;
+  fill: #555;
+}
+.visual-svg .bar-value {
+  font-size: 13px;
+}
+.visual-svg .chart-subtitle {
+  font-size: 18px;
+  font-weight: 600;
+}
+.visual-svg .pie-value {
+  font-size: 16px;
+  font-weight: 600;
+}
+.visual-svg .step-number {
+  font-size: 12px;
+  fill: #fff;
+}
+.visual-svg .step-label {
+  font-size: 15px;
+  font-weight: 600;
+}
+.visual-svg .step-detail {
+  font-size: 12px;
+  fill: #444;
+}
+.visual-svg .road-label {
+  font-size: 13px;
+  letter-spacing: 1px;
+}
+.visual-data {
+  margin-top: 10px;
+  font-size: 11px;
+  color: #444;
+}
+.visual-data summary {
+  cursor: pointer;
+  padding: 7px 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.visual-data ol,
+.visual-data ul {
+  padding-left: 23px;
+  list-style: revert;
+  line-height: 1.8;
+}
+.visual-data strong {
+  font-weight: 600;
+}
+.visual-data > div {
+  margin-top: 10px;
+}
+.visual-table {
+  color: #222;
+  min-width: 460px;
+}
+.visual-table caption {
+  text-align: left;
+  font-size: 11px;
+  padding: 8px 0;
+}
+.visual-table th,
+.visual-table td {
+  background: #fff !important;
+  color: #222;
+  border-color: #ccc;
+  padding: 10px;
+  font-size: 12px;
+}
+.visual-table thead th {
+  background: #eee !important;
+  font-weight: 600;
+}
+.visual-table tbody th {
+  font-weight: 500;
+}
+.visual-hint {
+  font:
+    9px Arial,
+    sans-serif !important;
+  color: var(--muted);
+  margin: 7px 0 0 !important;
+  line-height: 1.5 !important;
+}
+.mixed-visual > .chart-question + .chart-question {
+  border-top: 1px solid #ccc;
+  padding-top: 22px;
+}
+.map-period {
+  margin-top: 14px;
+}
+.map-period h5 {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 4px 0;
+}
+.map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px 16px;
+  margin: 10px 0 14px;
+  font-size: 10px;
+}
+.map-legend span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.map-legend i {
+  display: inline-block;
+  width: 17px;
+  height: 12px;
+  border: 1px solid #555;
+}
+.map-building {
+  background: #dedede;
+}
+.map-green {
+  background: repeating-linear-gradient(
+    60deg,
+    #fff,
+    #fff 3px,
+    #bbb 4px,
+    #fff 5px
+  );
+}
+.map-parking {
+  background: repeating-linear-gradient(
+    135deg,
+    #fff,
+    #fff 3px,
+    #bbb 4px,
+    #fff 5px
+  );
+}
+.map-water {
+  background: repeating-linear-gradient(
+    0deg,
+    #eee,
+    #eee 3px,
+    #999 4px,
+    #eee 5px
+  );
+}
+.map-road {
+  background: #eee;
+}
+.visual-dialog {
+  width: min(1120px, 96vw);
+  max-width: 96vw;
+  max-height: 94dvh;
+  padding: 0;
+  margin: auto;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel);
+  color: var(--text);
+}
+.visual-dialog::backdrop {
+  background: #0009;
+}
+.visual-dialog > header {
+  padding: 17px 20px;
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line);
+}
+.visual-dialog header strong {
+  font-size: 15px;
+  font-weight: 600;
+}
+.visual-dialog header p {
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 5px;
+}
+.zoom-toolbar {
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+.zoom-toolbar output {
+  font: 11px monospace;
+  min-width: 38px;
+  text-align: center;
+}
+.zoom-toolbar > span {
+  font-size: 9px;
+  color: var(--muted);
+  margin-left: auto;
+}
+.enlarged-scroll {
+  max-height: 70dvh;
+  overflow: auto;
+  padding: 20px;
+  background: var(--bg);
+  overscroll-behavior: contain;
+}
+.enlarged-stage {
+  margin: 0 auto;
+  max-width: none;
+  background: #fff;
+  color: #222;
+  flex-shrink: 0;
+}
+.enlarged-stage .visual-svg {
+  min-width: 0;
+}
+.enlarged-stage .chart-question {
+  padding: 1.2em;
+}
+.enlarged-stage h4 {
+  font-size: 1.2em;
+}
+.enlarged-stage h5 {
+  font-size: 1em;
+}
+.enlarged-stage .visual-unit {
+  font-size: 0.85em;
+}
+.enlarged-stage .visual-table th,
+.enlarged-stage .visual-table td {
+  font-size: 1em;
+}
+.enlarged-stage .visual-data {
+  font-size: 0.85em;
+}
+.writing-layout:has(.question-visual) {
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  align-items: start;
+}
+.writing-layout:has(.question-visual) .writing-editor {
+  position: sticky;
+  top: 15px;
+  min-height: 540px;
+}
+.writing-layout:has(.question-visual) .writing-editor textarea {
+  min-height: 430px;
+}
+@media (max-width: 1000px) and (min-width: 851px) {
+  .writing-layout:has(.question-visual) {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .visual-actions {
+    flex-wrap: wrap;
+  }
+}
+@media (max-width: 850px) {
+  .writing-layout:has(.question-visual) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .writing-layout:has(.question-visual) .writing-editor {
+    position: static;
+    min-height: 440px;
+  }
+  .writing-layout:has(.question-visual) .writing-editor textarea {
+    min-height: 350px;
+  }
+}
+@media (max-width: 600px) {
+  .task1-tools {
+    padding: 13px 15px;
+  }
+  .practice-level {
+    gap: 9px;
+  }
+  .practice-level p {
+    font-size: 10px;
+    line-height: 1.6;
+  }
+  .visual-selection {
+    gap: 9px;
+  }
+  .visual-selection label {
+    width: 100%;
+  }
+  .visual-selection select {
+    max-width: 170px;
+    flex: 1;
+  }
+  .visual-question-count {
+    width: 100%;
+  }
+  .visual-actions > span {
+    font-size: 6px;
+  }
+  .visual-actions button {
+    font-size: 8px;
+  }
+  .visual-dialog > header {
+    padding: 14px;
+  }
+  .visual-dialog header strong {
+    font-size: 13px;
+  }
+  .zoom-toolbar {
+    padding: 10px 14px;
+    gap: 8px;
+  }
+  .zoom-toolbar > span {
+    width: 100%;
+    margin: 0;
+  }
+  .enlarged-scroll {
+    padding: 10px;
+  }
+  .chart-question h4 {
+    font-size: 13px;
+  }
+  .prompt .visual-hint {
+    font-size: 9px;
+  }
+  .visual-hint {
+    font-size: 9px !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .visual-scroll .visual-svg {
+    min-width: 480px;
+  }
+}

@@ -48,3 +48,40 @@ Public URL: https://keyflow-seven-henna.vercel.app
 - Vercel reported **READY**, framework **Next.js**, Git connection **KulafuAcademy/KEYFLOW**, and production branch **main**. The first production deployment was automatically triggered by the initial GitHub push.
 
 The browser runs used Chromium, not a full Safari/Firefox/device matrix. Export and clipboard were exercised locally; production completion and persistence were exercised separately on the public origin.
+
+## Task 1 Basic / Visual enhancement verification
+
+Date: 20 October 2026 (Asia/Manila). Feature branch: `feat/task1-visual-questions`.
+
+### Automated checks
+
+- ESLint: passed without warnings.
+- TypeScript: passed.
+- Unit tests: **18 passed** (the original 10 plus 8 enhancement tests).
+- Production build: passed with the visual renderer in a lazy client chunk.
+- Data checks: exactly 3 questions in each of 7 types, 21 unique new IDs, percentage totals, mixed-chart cohort consistency, non-negative aligned series, map bounds and road clearance, complete process stages.
+- Render checks: all 21 visuals produce finite SVG geometry or accessible tables; SVG definition IDs are unique; every visual includes enlargement controls.
+- Regression checks: original Basic IDs, titles and table values remain unchanged; all 4 Task 2 prompts remain available; Basic and Visual drafts coexist under the original storage key; shared Task 1 deadline clamps at 20 minutes.
+
+### Browser checks on the feature preview
+
+Used in-app Chromium at `http://127.0.0.1:3047`. These checks were performed on the local feature, not the unchanged production app.
+
+- Selected and rendered **all 21 questions** through the actual category and question controls. Each showed the expected chart/table/diagram, no invalid geometry, and a 150-word minimum.
+- Opened enlargement dialogs for **all seven types**. Checked SVG zoom to 150%, keyboard Escape, and close controls. Tables remain selectable text; diagrams and charts remain SVG.
+- Inspected representative bar, line, pie, table, process, map, and mixed screenshots. Axes/units, series legends, percentage labels, directed process stages, north arrows, scale bars and map legends rendered.
+- Random Question changed `v-mixed-3` to `v-mixed-2` while the Mixed filter was active; it did not repeat the current question or leave the category.
+- A pre-existing 151-word Basic `w1` response loaded unchanged, including its original elapsed time and completed state. Switching to Visual and back preserved the Basic response exactly.
+- A separate Visual response survived Basic/Visual switching and a full reload; it restored paused, could be resumed/edited/paused, and completed at 155 words. Its session appeared in history under its Visual title, with words/time and no invented accuracy or band score.
+- Copy writing and `.txt` export remained functional; a browser download event was received for the Visual response.
+- Basic `w2` displayed its original table, 20-minute clock and 150-word minimum. Task 2 `w5` displayed its original instruction, 40-minute clock and 250-word minimum; the Task 1 selector and visuals were absent.
+- Existing Typing Drill and Copy Practice both completed on exact matches with 100% accuracy and zero uncorrected errors. Automated WPM values are smoke-test data, not human benchmarks.
+- Desktop: question and editor confirmed side by side; SVG fit within its visual panel. Light/dark switching retained white chart paper and dark labels.
+- Mobile: all seven types tested with a 390 × 844 requested viewport (the browser exposed a 355 CSS-pixel viewport at its current zoom). Question preceded the editor in every case. Document width was 341 CSS pixels, so no page overflow; oversized charts/diagrams scrolled inside their own visual container. Table scrolling is handled by its table wrapper. Mobile enlargement and zoom also worked.
+- Fresh-page error/warning log scan after the final corrections: **0 entries**.
+
+The full 20-minute countdown was not waited out in real time; boundary arithmetic is unit tested and the existing shared timer implementation is unchanged. This is a Chromium verification, not a Safari/Firefox device matrix.
+
+### Release status
+
+Prepared for PR review. No feature code has been merged into `main` or deployed to production. A branch-only Vercel deployment rule suppresses the automatic preview for this feature branch until approval; `main` automatic deployment remains enabled. The current public production application is unchanged.

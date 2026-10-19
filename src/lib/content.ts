@@ -1,3 +1,5 @@
+import type { QuestionVisual, VisualCategory } from "./task1-visuals";
+
 export type Exercise = {
   id: string;
   title: string;
@@ -81,6 +83,8 @@ export const passages: Exercise[] = [
   },
 ];
 export type Prompt = {
+  visual?: QuestionVisual;
+  category?: VisualCategory;
   id: string;
   task: 1 | 2;
   title: string;
