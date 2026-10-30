@@ -1016,7 +1016,7 @@ export default function BasicTraining({
                     className={`keyboard-achievement-badge keyboard-achievement-${currentLessonMedal ?? "completed"}`}
                   >
                     {currentLessonMedal
-                      ? `BEST · ${currentLessonMedal.toUpperCase()}`
+                      ? currentLessonMedal.toUpperCase()
                       : keyboardAchievementWasAttempted(currentLessonAchievement)
                         ? "COMPLETED · NO MEDAL"
                         : "NO MEDAL"}
