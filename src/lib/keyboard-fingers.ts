@@ -121,3 +121,11 @@ export function characterNeedsShift(character: string): boolean {
     Object.hasOwn(shiftedKeys, character)
   );
 }
+
+export function shiftFingerForCharacter(character: string): FingerId | null {
+  if (!characterNeedsShift(character)) return null;
+  const typingFinger = fingerForCharacter(character);
+  if (typingFinger?.startsWith("left-")) return "right-pinky";
+  if (typingFinger?.startsWith("right-")) return "left-pinky";
+  return null;
+}

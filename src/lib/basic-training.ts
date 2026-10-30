@@ -55,6 +55,14 @@ export const emptyLedger = (): KeystrokeLedger => ({
   mistypedKeys: {},
 });
 
+export function validKeyboardLessonProgress(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.every((id) => typeof id === "string" && id.length > 0) &&
+    new Set(value).size === value.length
+  );
+}
+
 export function isUnmodifiedPrintableKey(
   key: string,
   modifiers: {

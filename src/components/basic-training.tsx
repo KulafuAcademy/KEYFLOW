@@ -27,6 +27,7 @@ import {
   fingerOrder,
   keyboardKeyForCharacter,
   nextRequiredCharacter,
+  shiftFingerForCharacter,
   type FingerId,
 } from "@/lib/keyboard-fingers";
 import { KEYS, read, write, type Session } from "@/lib/storage";
@@ -46,12 +47,14 @@ import {
   shouldCompleteTarget,
   isUnmodifiedPrintableKey,
   shouldPlayIncorrectKeySound,
+  validKeyboardLessonProgress,
   validBasicTrainingDraft,
   type BasicTrainingDraft,
 } from "@/lib/basic-training";
 import {
   difficulties,
   keyboardLessons,
+  keyboardStages,
   sentenceLists,
   speedPassage,
   starterPracticeText,
@@ -107,6 +110,7 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
   const [ready, setReady] = useState(false);
   const [storageUnavailable, setStorageUnavailable] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [completedLessonIds, setCompletedLessonIds] = useState<string[]>([]);
   const [elapsed, setElapsed] = useState(0);
   const clock = useRef<Clock>({ elapsed: 0, started: null });
   const draftRef = useRef(draft);
@@ -121,6 +125,7 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
   const sessionId = useRef("");
   const audioContext = useRef<AudioContext | null>(null);
   const activeErrorTone = useRef<OscillatorNode | null>(null);
+  const completedLessonIdsRef = useRef<string[]>([]);
   const [incorrectAttempt, setIncorrectAttempt] = useState<{
     key: string;
     expected: string;
@@ -134,12 +139,11 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
     draft.mode === "sentences";
   const limit = timed ? draft.duration * 60_000 : Infinity;
   const finished = draft.status === "completed" || draft.status === "timed-out";
+  const currentLesson = keyboardLessons[draft.lessonIndex % keyboardLessons.length];
   const lessonComplete =
     draft.mode === "keyboard" && draft.input.length >= target.length;
   const score = basicTypingScore(draft.ledger, elapsed);
   const states = characterStates(target, draft.input);
-  const currentLesson =
-    keyboardLessons[draft.lessonIndex % keyboardLessons.length];
   const title =
     draft.mode === "keyboard"
       ? currentLesson.title
@@ -155,6 +159,14 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
     draftRef.current = next;
     setDraft(next);
     if (!write(KEYS.basicTraining, next)) setStorageUnavailable(true);
+  }, []);
+
+  const markKeyboardLessonComplete = useCallback((lessonId: string) => {
+    if (completedLessonIdsRef.current.includes(lessonId)) return;
+    const next = [...completedLessonIdsRef.current, lessonId];
+    completedLessonIdsRef.current = next;
+    setCompletedLessonIds(next);
+    if (!write(KEYS.basicTrainingLessons, next)) setStorageUnavailable(true);
   }, []);
 
   const focusPracticeSurface = useCallback((immediate = false) => {
@@ -179,11 +191,18 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
       true,
       (value) => typeof value === "boolean",
     );
+    const savedLessonProgress = read(
+      KEYS.basicTrainingLessons,
+      [],
+      validKeyboardLessonProgress,
+    ).filter((id) => keyboardLessons.some((lesson) => lesson.id === id));
+    completedLessonIdsRef.current = savedLessonProgress;
     const restored = restoreBasicTrainingDraft(saved, targetForDraft(saved));
     window.setTimeout(() => {
       clock.current = { elapsed: restored.elapsed, started: null };
       setElapsed(restored.elapsed);
       setSoundEnabled(savedSound);
+      setCompletedLessonIds(savedLessonProgress);
       update(restored);
       setReady(true);
       focusPracticeSurface();
@@ -338,6 +357,9 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
       const current = draftRef.current;
       update({
         ...current,
+        itemIndex: current.mode === "keyboard" ? 0 : current.itemIndex,
+        completedItems:
+          current.mode === "keyboard" ? 0 : current.completedItems,
         input: "",
         elapsed: 0,
         status: "ready",
@@ -373,6 +395,28 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
     update({
       ...draftRef.current,
       mode,
+      itemIndex: mode === "keyboard" ? 0 : draftRef.current.itemIndex,
+      completedItems:
+        mode === "keyboard" ? 0 : draftRef.current.completedItems,
+      input: "",
+      elapsed: 0,
+      status: "ready",
+      ledger: emptyLedger(),
+    });
+    setIncorrectAttempt(null);
+    focusPracticeSurface();
+  };
+  const chooseKeyboardLesson = (lessonIndex: number) => {
+    if (lessonIndex < 0 || lessonIndex >= keyboardLessons.length) return;
+    clock.current = { elapsed: 0, started: null };
+    setElapsed(0);
+    sessionId.current = "";
+    update({
+      ...draftRef.current,
+      mode: "keyboard",
+      lessonIndex,
+      itemIndex: 0,
+      completedItems: 0,
       input: "",
       elapsed: 0,
       status: "ready",
@@ -468,6 +512,10 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
       elapsed: ms,
       status: current.status === "ready" ? "active" : current.status,
     };
+    const keyboardExerciseComplete =
+      current.mode === "keyboard" &&
+      attempt.accepted &&
+      attempt.input.length >= target.length;
     if (
       attempt.accepted &&
       shouldAdvanceItem(current.mode, target, attempt.input)
@@ -480,9 +528,18 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
       };
     }
     update(next);
+    if (keyboardExerciseComplete) markKeyboardLessonComplete(currentLesson.id);
     if (shouldCompleteTarget(current.mode, target, attempt.input))
       window.setTimeout(() => completeRef.current("completed", ms), 0);
-  }, [limit, playIncorrectSound, soundEnabled, target, update]);
+  }, [
+    currentLesson,
+    limit,
+    markKeyboardLessonComplete,
+    playIncorrectSound,
+    soundEnabled,
+    target,
+    update,
+  ]);
 
   const handleGuidedKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     if (event.defaultPrevented) return;
@@ -634,9 +691,56 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
             <div>
               <div className="eyebrow">
                 BASIC TRAINING / {draft.mode.toUpperCase()}
+                {draft.mode === "keyboard" &&
+                  ` · ${currentLesson.stageTitle} · ${currentLesson.difficulty.toUpperCase()}`}
               </div>
               <h2>{title}</h2>
+              {draft.mode === "keyboard" && (
+                <p className="keyboard-exercise-objective">
+                  {currentLesson.objective}
+                </p>
+              )}
             </div>
+            {draft.mode === "keyboard" && (
+              <label className="keyboard-lesson-picker">
+                <span>LESSON</span>
+                <select
+                  aria-label="Keyboard lesson"
+                  value={draft.lessonIndex}
+                  onChange={(event) =>
+                    chooseKeyboardLesson(Number(event.target.value))
+                  }
+                >
+                  {keyboardStages.map((stage) => (
+                    <optgroup key={stage.id} label={stage.title}>
+                      {stage.exercises.map((exercise) => {
+                        const index = keyboardLessons.findIndex(
+                          (lesson) => lesson.id === exercise.id,
+                        );
+                        const complete = completedLessonIds.includes(exercise.id);
+                        const inProgress =
+                          !complete &&
+                          draft.lessonIndex === index &&
+                          (draft.input.length > 0 ||
+                            draft.status === "active" ||
+                            draft.status === "paused");
+                        const status = complete
+                          ? "Complete"
+                          : inProgress
+                            ? "In progress"
+                            : "Not started";
+                        return (
+                          <option key={exercise.id} value={index}>
+                            {exercise.title} — {status} ({exercise.difficulty})
+                          </option>
+                        );
+                      })}
+                    </optgroup>
+                  ))}
+                </select>
+                <small>{completedLessonIds.length}/{keyboardLessons.length}</small>
+              </label>
+            )}
           </div>
           {draft.mode === "free" && (
             <div className="basic-training-reference">
@@ -678,7 +782,9 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
               <div className="basic-target-label">
                 <span>TARGET TEXT</span>
                 <span>
-                  {draft.mode === "words" || draft.mode === "sentences"
+                  {draft.mode === "keyboard"
+                    ? `EXERCISE ${draft.lessonIndex + 1} / ${keyboardLessons.length} · ${draft.input.length}/${target.length}`
+                    : draft.mode === "words" || draft.mode === "sentences"
                     ? `ITEM ${draft.itemIndex + 1} · ${draft.completedItems} COMPLETE · ${draft.input.length}/${target.length}`
                     : `${draft.input.length} / ${target.length}`}
                 </span>
@@ -805,7 +911,7 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
                       focusPracticeSurface();
                     }}
                   >
-                    <Keyboard size={14} /> Next lesson
+                    <Keyboard size={14} /> Next exercise
                   </button>
                 )}
               </div>
@@ -1030,7 +1136,8 @@ function KeyboardGuide({ target, input }: { target: string; input: string }) {
   const activeFinger = fingerForCharacter(required);
   const keyToHighlight = keyboardKeyForCharacter(required);
   const needsShift = characterNeedsShift(required);
-  const shiftHand = activeFinger?.startsWith("left-") ? "right" : "left";
+  const shiftFinger = shiftFingerForCharacter(required);
+  const shiftHand = shiftFinger?.startsWith("left-") ? "left" : "right";
 
   return (
     <div className="keyboard-guide rounded border border-[var(--line)] p-3">
@@ -1039,7 +1146,7 @@ function KeyboardGuide({ target, input }: { target: string; input: string }) {
         <strong>FINGER GUIDE</strong>
         <span aria-live="polite">
           {required
-            ? `${required === " " ? "Space" : required} · ${activeFinger ? `${activeFinger.startsWith("left-") ? "Left" : "Right"} ${fingerLabels[activeFinger].toLowerCase()}` : "key"}`
+            ? `${required === " " ? "Space" : required} · ${activeFinger ? `${activeFinger.startsWith("left-") ? "Left" : "Right"} ${fingerLabels[activeFinger].toLowerCase()}` : "key"}${shiftFinger ? ` + ${shiftHand} Shift` : ""}`
             : "Lesson complete"}
         </span>
       </div>
@@ -1072,7 +1179,7 @@ function KeyboardGuide({ target, input }: { target: string; input: string }) {
           ))}
           <div className="keyboard-key-row keyboard-bottom-row">
             <kbd
-              className={`keycap keycap-wide shift-key${needsShift && shiftHand === "left" ? " shift-required" : ""}`}
+              className={`keycap keycap-wide shift-key${needsShift && shiftHand === "left" ? " shift-required next-key" : ""}`}
             >
               ⇧ Shift
             </kbd>
@@ -1083,7 +1190,7 @@ function KeyboardGuide({ target, input }: { target: string; input: string }) {
               Space
             </kbd>
             <kbd
-              className={`keycap keycap-wide shift-key${needsShift && shiftHand === "right" ? " shift-required" : ""}`}
+              className={`keycap keycap-wide shift-key${needsShift && shiftHand === "right" ? " shift-required next-key" : ""}`}
             >
               ⇧ Shift
             </kbd>
@@ -1098,7 +1205,7 @@ function KeyboardGuide({ target, input }: { target: string; input: string }) {
               <FingerShape
                 key={finger}
                 finger={finger}
-                active={finger === activeFinger}
+                active={finger === activeFinger || finger === shiftFinger}
               />
             ))}
           </div>
@@ -1110,7 +1217,7 @@ function KeyboardGuide({ target, input }: { target: string; input: string }) {
               <FingerShape
                 key={finger}
                 finger={finger}
-                active={finger === activeFinger}
+                active={finger === activeFinger || finger === shiftFinger}
               />
             ))}
           </div>

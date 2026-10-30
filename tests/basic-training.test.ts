@@ -25,6 +25,7 @@ import {
   shouldAdvanceItem,
   shouldCompleteTarget,
   shouldPlayIncorrectKeySound,
+  validKeyboardLessonProgress,
   validBasicTrainingDraft,
 } from "../src/lib/basic-training";
 import {
@@ -33,9 +34,11 @@ import {
   fingerOrder,
   keyboardKeyForCharacter,
   nextRequiredCharacter,
+  shiftFingerForCharacter,
 } from "../src/lib/keyboard-fingers";
 import {
   keyboardLessons,
+  keyboardStages,
   sentenceLists,
   speedPassage,
   wordLists,
@@ -57,18 +60,87 @@ const emptyDraft = {
   ledger: emptyLedger(),
 };
 
-test("keyboard lessons progress through home row, letters, shift, numbers and punctuation", () => {
-  assert.match(keyboardLessons[0].text, /asdf.*jkl;/);
-  assert.match(keyboardLessons[4].text, /quick brown fox/);
-  assert.match(keyboardLessons[5].text, /[A-Z]/);
-  assert.match(keyboardLessons[6].text, /\d/);
-  assert.match(keyboardLessons[7].text, /[,!.]/);
+test("keyboard curriculum has five ordered stages and at least 55 distinct exercises", () => {
+  assert.deepEqual(
+    keyboardStages.map((stage) => stage.exercises.length),
+    [10, 10, 10, 15, 10],
+  );
+  assert.equal(keyboardLessons.length, 55);
+  assert.equal(new Set(keyboardLessons.map((lesson) => lesson.id)).size, 55);
+  for (const lesson of keyboardLessons) {
+    assert.ok(lesson.title.length > 0);
+    assert.ok(lesson.objective.length > 0);
+    assert.ok(lesson.keys.length > 0);
+    assert.ok(lesson.text.length >= 15);
+    assert.ok(
+      ["beginner", "intermediate", "advanced"].includes(lesson.difficulty),
+    );
+  }
+  const containsOnly = (text: string, allowed: string) =>
+    Array.from(text.toLowerCase()).every((character) =>
+      allowed.includes(character),
+    );
+  for (const lesson of keyboardStages[0].exercises) {
+    assert.ok(containsOnly(lesson.text, "asdfghjkl; "), lesson.id);
+  }
+  for (const lesson of keyboardStages[1].exercises.slice(0, 8)) {
+    assert.ok(containsOnly(lesson.text, "qwertyuiop "), lesson.id);
+  }
+  for (const lesson of keyboardStages[2].exercises.slice(0, 8)) {
+    assert.ok(containsOnly(lesson.text, "zxcvbnm,./ "), lesson.id);
+  }
+  const allLetters = new Set(
+    keyboardStages[3].exercises.flatMap((lesson) =>
+      Array.from(lesson.text.toLowerCase()).filter((char) =>
+        /[a-z]/.test(char),
+      ),
+    ),
+  );
+  assert.deepEqual(
+    [...allLetters].sort(),
+    Array.from("abcdefghijklmnopqrstuvwxyz"),
+  );
+  const extendedText = keyboardStages[4].exercises
+    .map((exercise) => exercise.text)
+    .join(" ");
+  for (const digit of "0123456789") assert.ok(extendedText.includes(digit));
+  for (const symbol of '!@#$%^&*()_+-={}":;<>.?~/|')
+    assert.ok(extendedText.includes(symbol));
   assert.equal(nextLessonIndex(0, keyboardLessons.length), 1);
   assert.equal(
     nextLessonIndex(keyboardLessons.length - 1, keyboardLessons.length),
     0,
   );
   assert.equal(nextLessonIndex(5, 0), 0);
+});
+
+test("guided keyboard progression accepts only the expected character and counts errors", () => {
+  const target = "a B! ";
+  const wrong = recordGuidedKeystroke("", "s", target, emptyLedger());
+  assert.equal(wrong.accepted, false);
+  assert.equal(wrong.input, "");
+  assert.equal(wrong.ledger.errors, 1);
+  assert.equal(wrong.ledger.mistypedKeys.a, 1);
+  const correct = recordGuidedKeystroke("", "a", target, wrong.ledger);
+  assert.equal(correct.input, "a");
+  assert.equal(correct.accepted, true);
+  assert.equal(nextRequiredCharacter(target, correct.input), " ");
+  assert.equal(
+    recordGuidedKeystroke("a", " ", target, correct.ledger).input,
+    "a ",
+  );
+});
+
+test("keyboard lesson completion progress is validated and shift fingers use the opposite hand", () => {
+  assert.equal(validKeyboardLessonProgress(["home-01", "top-02"]), true);
+  assert.equal(validKeyboardLessonProgress(["home-01", "home-01"]), false);
+  assert.equal(validKeyboardLessonProgress(["home-01", 2]), false);
+  assert.equal(validKeyboardLessonProgress("home-01"), false);
+  assert.equal(shiftFingerForCharacter("T"), "right-pinky");
+  assert.equal(shiftFingerForCharacter("Y"), "left-pinky");
+  assert.equal(shiftFingerForCharacter("!"), "right-pinky");
+  assert.equal(shiftFingerForCharacter("?"), "left-pinky");
+  assert.equal(shiftFingerForCharacter("t"), null);
 });
 
 test("finger guide uses standard assignments and keeps both hands in left-to-right order", () => {
@@ -474,6 +546,16 @@ test("basic training state and session history persist through KEYFLOW local sto
         (value) => typeof value === "boolean",
       ),
       false,
+    );
+    assert.equal(write(KEYS.basicTrainingLessons, ["home-01", "top-03"]), true);
+    assert.deepEqual(
+      read(KEYS.basicTrainingLessons, [], validKeyboardLessonProgress),
+      ["home-01", "top-03"],
+    );
+    values.set(KEYS.basicTrainingLessons, '["home-01","home-01"]');
+    assert.deepEqual(
+      read(KEYS.basicTrainingLessons, [], validKeyboardLessonProgress),
+      [],
     );
     values.set(KEYS.basicTrainingSound, '"invalid"');
     assert.equal(
