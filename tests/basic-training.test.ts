@@ -15,6 +15,7 @@ import {
   characterStates,
   emptyLedger,
   isUnmodifiedPrintableKey,
+  isSpacebarShortcut,
   nextLessonIndex,
   recordGuidedKeystroke,
   recordTypingEdit,
@@ -173,21 +174,44 @@ test("Space action follows the current Basic Training state", () => {
 });
 
 test("Space instructions match the requested visible labels", () => {
-  assert.equal(
-    basicTrainingSpaceInstruction("ready"),
-    "Ready: Press Space to Start",
-  );
+  assert.equal(basicTrainingSpaceInstruction("ready"), "Press Space to Start");
   assert.equal(
     basicTrainingSpaceInstruction("paused"),
-    "Paused: Press Space to Resume",
+    "Press Space to Resume",
   );
   assert.equal(
     basicTrainingSpaceInstruction("completed"),
-    "Completed: Press Space to Restart",
+    "Press Space to Restart",
+  );
+  assert.equal(
+    basicTrainingSpaceInstruction("timed-out"),
+    "Press Space to Restart",
   );
   assert.equal(
     basicTrainingSpaceInstruction("active"),
     "Typing active · Space types normally",
+  );
+});
+
+test("Space detection accepts Safari key values and physical Space code only without modifiers", () => {
+  assert.equal(isSpacebarShortcut({ key: " ", code: "" }), true);
+  assert.equal(isSpacebarShortcut({ key: "Spacebar", code: "" }), true);
+  assert.equal(
+    isSpacebarShortcut({ key: "Unidentified", code: "Space" }),
+    true,
+  );
+  assert.equal(isSpacebarShortcut({ key: "a", code: "KeyA" }), false);
+  assert.equal(
+    isSpacebarShortcut({ key: " ", code: "Space", shiftKey: true }),
+    false,
+  );
+  assert.equal(
+    isSpacebarShortcut({ key: " ", code: "Space", metaKey: true }),
+    false,
+  );
+  assert.equal(
+    isSpacebarShortcut({ key: " ", code: "Space", isComposing: true }),
+    false,
   );
 });
 

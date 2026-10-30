@@ -29,6 +29,7 @@ import {
   basicTypingScore,
   characterStates,
   emptyLedger,
+  isSpacebarShortcut,
   nextLessonIndex,
   recordGuidedKeystroke,
   recordTypingEdit,
@@ -142,8 +143,8 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
     if (!write(KEYS.basicTraining, next)) setStorageUnavailable(true);
   }, []);
 
-  const focusPracticeSurface = useCallback(() => {
-    window.setTimeout(() => {
+  const focusPracticeSurface = useCallback((immediate = false) => {
+    const focus = () => {
       const current = draftRef.current;
       if (
         current.mode === "keyboard" ||
@@ -152,7 +153,9 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
       )
         trainingSurface.current?.focus({ preventScroll: true });
       else textarea.current?.focus({ preventScroll: true });
-    }, 0);
+    };
+    if (immediate) focus();
+    else window.setTimeout(focus, 0);
   }, []);
 
   useEffect(() => {
@@ -336,8 +339,15 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
     if (current.status !== "paused") return;
     clock.current = { elapsed: current.elapsed, started: Date.now() };
     update({ ...current, status: "active" });
-    focusPracticeSurface();
+    focusPracticeSurface(true);
   }, [focusPracticeSurface, update]);
+  const activateFromSpace = useCallback(() => {
+    const action = basicTrainingSpaceAction(draftRef.current.status);
+    if (action === "start") begin();
+    else if (action === "resume") resume();
+    else if (action === "restart") restart(false);
+    focusPracticeSurface(true);
+  }, [begin, focusPracticeSurface, restart, resume]);
   const changeMode = (mode: BasicTrainingMode) => {
     if (mode === draft.mode) {
       focusPracticeSurface();
@@ -412,7 +422,9 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
       element.closest("button,input,textarea,select,[contenteditable='true']")
     )
       return;
-    if (!isUnmodifiedPrintableKey(event.key, event)) return;
+    const typedKey =
+      event.key === "Spacebar" || event.key === "Space" ? " " : event.key;
+    if (!isUnmodifiedPrintableKey(typedKey, event)) return;
 
     const current = draftRef.current;
     if (
@@ -432,12 +444,12 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
     }
     const attempt = recordGuidedKeystroke(
       current.input,
-      event.key,
+      typedKey,
       target,
       current.ledger,
     );
     if (!attempt.accepted) {
-      setIncorrectAttempt({ key: event.key, expected: attempt.expected });
+      setIncorrectAttempt({ key: typedKey, expected: attempt.expected });
       if (
         shouldPlayIncorrectKeySound(
           attempt.accepted,
@@ -476,62 +488,40 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
 
   useEffect(() => {
     const handleSpacebar = (event: KeyboardEvent) => {
-      if (
-        event.code !== "Space" ||
-        event.repeat ||
-        event.isComposing ||
-        event.shiftKey ||
-        event.metaKey ||
-        event.ctrlKey ||
-        event.altKey
-      )
-        return;
+      if (!isSpacebarShortcut(event)) return;
 
       const element = event.target instanceof HTMLElement ? event.target : null;
       const typingInput = element?.id === "basic-typing-input";
-      const otherEditor = Boolean(
-        element?.closest("input,textarea,[contenteditable='true']") &&
-        !typingInput,
-      );
-      const button = element?.closest("button");
       const current = draftRef.current;
       const action = basicTrainingSpaceAction(current.status);
+      const focusedControl = element?.closest(
+        "button,input,textarea,select,[contenteditable='true']",
+      );
+      const inGuidedSurface = Boolean(
+        element && trainingSurface.current?.contains(element),
+      );
+      const isTrainingControl =
+        typingInput || (inGuidedSurface && !focusedControl);
+
+      // Do not steal Space from other editors or controls (for example, the
+      // free-text reference field, mode selector, or sound toggle).
+      if (focusedControl && !isTrainingControl) return;
+      if (event.repeat && action !== "type") return;
 
       if (action === "type") {
-        if (button) {
-          // Space activates focused buttons by default; keep it from triggering
-          // Restart while an exercise is running.
-          event.preventDefault();
-          return;
-        }
-        if (
-          !typingInput &&
-          element !== trainingSurface.current &&
-          !otherEditor
-        ) {
-          event.preventDefault();
-          focusPracticeSurface();
-        }
+        // Running Space is never a session shortcut. If focus was lost, leave
+        // the key alone; the visible Focus Typing button restores input focus.
         return;
       }
 
-      if (action === "start" && (button || otherEditor)) return;
-      if (otherEditor && action === "restart") return;
-
       event.preventDefault();
-      if (action === "start") {
-        begin();
-        focusPracticeSurface();
-      } else if (action === "resume") {
-        resume();
-      } else {
-        restart();
-      }
+      event.stopPropagation();
+      activateFromSpace();
     };
 
     window.addEventListener("keydown", handleSpacebar, true);
     return () => window.removeEventListener("keydown", handleSpacebar, true);
-  }, [begin, focusPracticeSurface, restart, resume]);
+  }, [activateFromSpace, focusPracticeSurface]);
 
   const chooseDifficulty = (difficulty: Difficulty) => {
     update({
@@ -682,13 +672,22 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
                 ))}
               </div>
             </div>
-            <p
-              className="training-space-hint"
-              aria-live="polite"
-              aria-atomic="true"
-            >
-              {basicTrainingSpaceInstruction(draft.status)}
-            </p>
+            <div className="training-space-row">
+              <p
+                className="training-space-hint"
+                aria-live="polite"
+                aria-atomic="true"
+              >
+                {basicTrainingSpaceInstruction(draft.status)}
+              </p>
+              <button
+                type="button"
+                className="secondary training-space-fallback"
+                onClick={activateFromSpace}
+              >
+                Start / Focus Typing
+              </button>
+            </div>
             {guidedMode && (
               <KeyboardGuide target={target} input={draft.input} />
             )}
@@ -707,8 +706,7 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
                 spellCheck={false}
                 autoComplete="off"
                 value={draft.input}
-                disabled={finished}
-                readOnly={draft.status === "paused"}
+                readOnly={finished || draft.status === "paused"}
                 onChange={(e) => edit(e.target.value)}
                 onPaste={(e) => {
                   e.preventDefault();

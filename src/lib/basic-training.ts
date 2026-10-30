@@ -89,13 +89,35 @@ export function basicTrainingSpaceAction(
   return "restart";
 }
 
+export function isSpacebarShortcut(event: {
+  key: string;
+  code: string;
+  shiftKey?: boolean;
+  metaKey?: boolean;
+  ctrlKey?: boolean;
+  altKey?: boolean;
+  isComposing?: boolean;
+}) {
+  return (
+    (event.key === " " ||
+      event.key === "Spacebar" ||
+      event.key === "Space" ||
+      event.code === "Space") &&
+    !event.shiftKey &&
+    !event.metaKey &&
+    !event.ctrlKey &&
+    !event.altKey &&
+    !event.isComposing
+  );
+}
+
 export function basicTrainingSpaceInstruction(
   status: BasicTrainingDraft["status"],
 ) {
-  if (status === "ready") return "Ready: Press Space to Start";
-  if (status === "paused") return "Paused: Press Space to Resume";
-  if (status === "completed") return "Completed: Press Space to Restart";
-  if (status === "timed-out") return "Time is up: Press Space to Restart";
+  if (status === "ready") return "Press Space to Start";
+  if (status === "paused") return "Press Space to Resume";
+  if (status === "completed" || status === "timed-out")
+    return "Press Space to Restart";
   return "Typing active · Space types normally";
 }
 
