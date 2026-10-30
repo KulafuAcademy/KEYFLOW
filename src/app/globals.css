@@ -2368,12 +2368,12 @@ select {
   font: 700 9px var(--font-mono), monospace;
   letter-spacing: 0.06em;
 }
-.dashboard-achievement-tier.bronze .dashboard-achievement-tier-heading > strong,
-.dashboard-achievement-tier.bronze .dashboard-achievement-track span { color: var(--medal-bronze); background-color: var(--medal-bronze); }
-.dashboard-achievement-tier.silver .dashboard-achievement-tier-heading > strong,
-.dashboard-achievement-tier.silver .dashboard-achievement-track span { color: var(--medal-silver); background-color: var(--medal-silver); }
-.dashboard-achievement-tier.gold .dashboard-achievement-tier-heading > strong,
-.dashboard-achievement-tier.gold .dashboard-achievement-track span { color: var(--medal-gold); background-color: var(--medal-gold); }
+.dashboard-achievement-tier.bronze .dashboard-achievement-tier-heading > strong { color: var(--medal-bronze); }
+.dashboard-achievement-tier.bronze .dashboard-achievement-track span { background-color: var(--medal-bronze); }
+.dashboard-achievement-tier.silver .dashboard-achievement-tier-heading > strong { color: var(--medal-silver); }
+.dashboard-achievement-tier.silver .dashboard-achievement-track span { background-color: var(--medal-silver); }
+.dashboard-achievement-tier.gold .dashboard-achievement-tier-heading > strong { color: var(--medal-gold); }
+.dashboard-achievement-tier.gold .dashboard-achievement-track span { background-color: var(--medal-gold); }
 .dashboard-achievement-tier-status {
   justify-self: end;
   color: var(--muted);
