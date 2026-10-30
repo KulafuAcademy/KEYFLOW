@@ -2,6 +2,7 @@ import "server-only";
 
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { publicLearningAccessEnabled } from "@/lib/public-learning-access";
 
 export type StaffIdentity = { id: string; email: string | null };
 
@@ -37,6 +38,7 @@ export async function createStaffServerClient() {
 }
 
 export async function requireStaff() {
+  if (publicLearningAccessEnabled()) return { identity: null, accessToken: null, response: null };
   const client = await createStaffServerClient();
   if (!client) return { identity: null, accessToken: null, response: Response.json({ error: "Staff authentication is not configured." }, { status: 503 }) };
   const { data: { user }, error } = await client.auth.getUser();

@@ -1,8 +1,13 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
+import { publicLearningAccessEnabled } from "@/lib/public-learning-access";
 
 export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
+  if (publicLearningAccessEnabled()) {
+    if (path === "/staff/login") return NextResponse.redirect(new URL("/", request.url));
+    return NextResponse.next();
+  }
   if (path === "/staff/login" || path === "/staff/session" || path === "/staff/logout") return NextResponse.next();
   const url = process.env.AMPLIFY_SUPABASE_URL;
   const anonKey = process.env.AMPLIFY_SUPABASE_ANON_KEY;
