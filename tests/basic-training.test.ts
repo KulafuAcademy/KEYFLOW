@@ -19,6 +19,13 @@ import {
   validBasicTrainingDraft,
 } from "../src/lib/basic-training";
 import {
+  characterNeedsShift,
+  fingerForCharacter,
+  fingerOrder,
+  keyboardKeyForCharacter,
+  nextRequiredCharacter,
+} from "../src/lib/keyboard-fingers";
+import {
   keyboardLessons,
   sentenceLists,
   speedPassage,
@@ -37,6 +44,51 @@ test("keyboard lessons progress through home row, letters, shift, numbers and pu
     0,
   );
   assert.equal(nextLessonIndex(5, 0), 0);
+});
+
+test("finger guide uses standard assignments and keeps both hands in left-to-right order", () => {
+  assert.deepEqual(fingerOrder, [
+    "left-pinky",
+    "left-ring",
+    "left-middle",
+    "left-index",
+    "left-thumb",
+    "right-thumb",
+    "right-index",
+    "right-middle",
+    "right-ring",
+    "right-pinky",
+  ]);
+  assert.equal(fingerForCharacter("a"), "left-pinky");
+  assert.equal(fingerForCharacter("w"), "left-ring");
+  assert.equal(fingerForCharacter("e"), "left-middle");
+  assert.equal(fingerForCharacter("t"), "left-index");
+  assert.equal(fingerForCharacter("y"), "right-index");
+  assert.equal(fingerForCharacter("i"), "right-middle");
+  assert.equal(fingerForCharacter("o"), "right-ring");
+  assert.equal(fingerForCharacter("p"), "right-pinky");
+  assert.equal(fingerForCharacter(" "), "right-thumb");
+  assert.equal(fingerForCharacter("?"), "right-pinky");
+});
+
+test("key highlight follows the physical key for capitals and shifted punctuation", () => {
+  assert.equal(keyboardKeyForCharacter("a"), "A");
+  assert.equal(keyboardKeyForCharacter("T"), "T");
+  assert.equal(keyboardKeyForCharacter("!"), "1");
+  assert.equal(keyboardKeyForCharacter("?"), "/");
+  assert.equal(keyboardKeyForCharacter(" "), "Space");
+  assert.equal(characterNeedsShift("T"), true);
+  assert.equal(characterNeedsShift("!"), true);
+  assert.equal(characterNeedsShift("t"), false);
+  assert.equal(characterNeedsShift(" "), false);
+});
+
+test("finger target follows the next expected character and responds to edits", () => {
+  assert.equal(nextRequiredCharacter("aB c", ""), "a");
+  assert.equal(nextRequiredCharacter("aB c", "a"), "B");
+  assert.equal(nextRequiredCharacter("aB c", "aB"), " ");
+  assert.equal(nextRequiredCharacter("aB c", "a"), "B");
+  assert.equal(nextRequiredCharacter("aB c", "aB c"), "");
 });
 
 test("word and sentence banks provide all difficulty levels and speed passage content", () => {

@@ -12,6 +12,14 @@ import {
   Zap,
 } from "lucide-react";
 import { elapsedMs, timeLabel, type Clock } from "@/lib/metrics";
+import {
+  characterNeedsShift,
+  fingerForCharacter,
+  fingerOrder,
+  keyboardKeyForCharacter,
+  nextRequiredCharacter,
+  type FingerId,
+} from "@/lib/keyboard-fingers";
 import { KEYS, read, write, type Session } from "@/lib/storage";
 import {
   basicTypingScore,
@@ -641,116 +649,124 @@ function BasicMetric({
 }
 
 const keyboardRows = [
-  "1234567890-=",
+  "`1234567890-=",
   "QWERTYUIOP[]\\",
   "ASDFGHJKL;'",
   "ZXCVBNM,./",
 ];
-const shiftedKeys: Record<string, string> = {
-  "!": "1",
-  "@": "2",
-  "#": "3",
-  $: "4",
-  "%": "5",
-  "^": "6",
-  "&": "7",
-  "*": "8",
-  "(": "9",
-  ")": "0",
-  _: "-",
-  "+": "=",
-  "{": "[",
-  "}": "]",
-  "|": "\\",
-  ":": ";",
-  '"': "'",
-  "<": ",",
-  ">": ".",
-  "?": "/",
-  "~": "`",
+
+const fingerLabels: Record<FingerId, string> = {
+  "left-pinky": "Pinky",
+  "left-ring": "Ring",
+  "left-middle": "Middle",
+  "left-index": "Index",
+  "left-thumb": "Thumb",
+  "right-thumb": "Thumb",
+  "right-index": "Index",
+  "right-middle": "Middle",
+  "right-ring": "Ring",
+  "right-pinky": "Pinky",
 };
-function fingerHint(key: string) {
-  if (key === " ") return "Thumb · space bar";
-  const lower = key.toLowerCase();
-  const leftPinky = "qaz1`!~".includes(lower);
-  const leftRing = "wsx23@#".includes(lower);
-  const leftMiddle = "edc34$%".includes(lower);
-  const leftIndex = "rfvtgb456^&".includes(lower);
-  const rightIndex = "yhnujm6787&*".includes(lower);
-  const rightMiddle = "ik89()".includes(lower);
-  const rightRing = "ol90-_".includes(lower);
-  const hand =
-    leftPinky || leftRing || leftMiddle || leftIndex ? "Left" : "Right";
-  const finger =
-    leftPinky ||
-    (!leftPinky &&
-      !leftRing &&
-      !leftMiddle &&
-      !leftIndex &&
-      !rightIndex &&
-      !rightMiddle &&
-      !rightRing)
-      ? "pinky"
-      : leftRing || rightRing
-        ? "ring"
-        : leftMiddle || rightMiddle
-          ? "middle"
-          : "index";
-  const home = "asdfjkl;".includes(lower);
-  return `${hand} ${finger} finger${home ? " · home row" : ""}`;
-}
+
 function KeyboardGuide({ target, input }: { target: string; input: string }) {
-  const required = Array.from(target)[Array.from(input).length] || "";
-  const upper =
-    required && required.toUpperCase() === required && /[A-Z]/.test(required);
-  const shifted = Boolean(shiftedKeys[required]);
-  const keyToHighlight = upper
-    ? required.toLowerCase()
-    : shifted
-      ? shiftedKeys[required]
-      : required;
-  const needsShift = Boolean(upper || shifted);
+  const required = nextRequiredCharacter(target, input);
+  const activeFinger = fingerForCharacter(required);
+  const keyToHighlight = keyboardKeyForCharacter(required);
+  const needsShift = characterNeedsShift(required);
+  const shiftHand = activeFinger?.startsWith("left-") ? "right" : "left";
+
   return (
-    <div className="mt-4 rounded border border-[var(--line)] p-3">
-      <div className="mb-2 flex items-center gap-2 text-xs">
-        <Keyboard size={14} />
-        <strong>KEYBOARD POSITION</strong>
-        <span className="text-[var(--muted)]">
+    <div className="keyboard-guide mt-4 rounded border border-[var(--line)] p-3">
+      <div className="keyboard-guide-heading">
+        <Keyboard size={14} aria-hidden="true" />
+        <strong>FINGER GUIDE</strong>
+        <span aria-live="polite">
           {required
-            ? `${required === " " ? "Space" : required} · ${fingerHint(required)}`
+            ? `${required === " " ? "Space" : required} · ${activeFinger ? `${activeFinger.startsWith("left-") ? "Left" : "Right"} ${fingerLabels[activeFinger].toLowerCase()}` : "key"}`
             : "Lesson complete"}
         </span>
       </div>
-      <div className="grid gap-1.5">
-        {keyboardRows.map((row) => (
-          <div className="flex justify-center gap-1" key={row}>
-            {Array.from(row).map((key) => (
-              <kbd
-                key={key}
-                className={`keycap ${keyToHighlight.toUpperCase() === key || keyToHighlight === key ? "next-key" : ""}`}
-              >
-                {key}
-              </kbd>
-            ))}
+      <div className="keyboard-visual-scroll" aria-label="Virtual keyboard">
+        <div className="keyboard-visual">
+          {keyboardRows.map((row) => (
+            <div className="keyboard-key-row" key={row}>
+              {Array.from(row).map((key) => {
+                const active = keyToHighlight === key;
+                return (
+                  <kbd
+                    key={key}
+                    className={`keycap${active ? " next-key" : ""}`}
+                    aria-current={active ? "true" : undefined}
+                  >
+                    {key === "`" ? "~" : key}
+                  </kbd>
+                );
+              })}
+            </div>
+          ))}
+          <div className="keyboard-key-row keyboard-bottom-row">
+            <kbd
+              className={`keycap keycap-wide shift-key${needsShift && shiftHand === "left" ? " shift-required" : ""}`}
+            >
+              ⇧ Shift
+            </kbd>
+            <kbd
+              className={`keycap keycap-space${required === " " ? " next-key" : ""}`}
+              aria-current={required === " " ? "true" : undefined}
+            >
+              Space
+            </kbd>
+            <kbd
+              className={`keycap keycap-wide shift-key${needsShift && shiftHand === "right" ? " shift-required" : ""}`}
+            >
+              ⇧ Shift
+            </kbd>
           </div>
-        ))}
-        <div className="flex justify-center gap-1">
-          <kbd className={`keycap keycap-wide ${needsShift ? "next-key" : ""}`}>
-            ⇧ Shift
-          </kbd>
-          <kbd
-            className={`keycap keycap-space ${required === " " ? "next-key" : ""}`}
-          >
-            Space
-          </kbd>
-          <kbd className="keycap keycap-wide">⇧ Shift</kbd>
         </div>
       </div>
-      {needsShift && (
-        <p className="mt-2 text-center text-xs">
-          Hold Shift with the highlighted letter.
+      <div className="finger-guide" role="img" aria-label="Ten-finger guide">
+        <div className="finger-hand">
+          <span className="finger-hand-label">LEFT HAND</span>
+          <div className="finger-row">
+            {fingerOrder.slice(0, 5).map((finger) => (
+              <FingerShape
+                key={finger}
+                finger={finger}
+                active={finger === activeFinger}
+              />
+            ))}
+          </div>
+        </div>
+        <div className="finger-hand">
+          <span className="finger-hand-label">RIGHT HAND</span>
+          <div className="finger-row">
+            {fingerOrder.slice(5).map((finger) => (
+              <FingerShape
+                key={finger}
+                finger={finger}
+                active={finger === activeFinger}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+      {needsShift && required !== " " && (
+        <p className="keyboard-shift-hint">
+          Hold the {shiftHand}-hand Shift key while pressing the highlighted key.
         </p>
       )}
     </div>
+  );
+}
+
+function FingerShape({ finger, active }: { finger: FingerId; active: boolean }) {
+  return (
+    <span
+      className={`finger-shape-wrap${finger.includes("thumb") ? " thumb" : ""}`}
+      aria-hidden="true"
+    >
+      <span className={`finger-shape${active ? " active" : ""}`} />
+      <span className="finger-label">{fingerLabels[finger]}</span>
+    </span>
   );
 }
