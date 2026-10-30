@@ -338,6 +338,43 @@ export function nextLessonIndex(index: number, count: number) {
   return count > 0 ? (index + 1) % count : 0;
 }
 
+export function adjacentKeyboardLessonIndex(
+  index: number,
+  count: number,
+  direction: "previous" | "next",
+): number | null {
+  if (count <= 0 || index < 0 || index >= count) return null;
+  if (direction === "previous") return index > 0 ? index - 1 : null;
+  return index < count - 1 ? index + 1 : null;
+}
+
+export function keyboardSpaceNextLessonIndex(
+  status: BasicTrainingDraft["status"],
+  lessonComplete: boolean,
+  index: number,
+  count: number,
+): number | null {
+  if (status !== "completed" || !lessonComplete) return null;
+  return adjacentKeyboardLessonIndex(index, count, "next");
+}
+
+export function keyboardSpaceInstruction(
+  status: BasicTrainingDraft["status"],
+  lessonComplete: boolean,
+  index: number,
+  count: number,
+) {
+  if (status === "ready") return "Press Space to Start";
+  if (status === "paused") return "Press Space to Resume";
+  if (status === "active") return "Typing active · Space types normally";
+  if (status === "completed" && lessonComplete) {
+    return adjacentKeyboardLessonIndex(index, count, "next") === null
+      ? "Course complete · select a lesson to repeat"
+      : "Press Space for Next Lesson";
+  }
+  return basicTrainingSpaceInstruction(status);
+}
+
 export function validBasicTrainingDraft(
   value: unknown,
 ): value is BasicTrainingDraft {

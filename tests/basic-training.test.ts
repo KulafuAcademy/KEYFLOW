@@ -11,11 +11,14 @@ import {
 import {
   basicTrainingSpaceAction,
   basicTrainingSpaceInstruction,
+  adjacentKeyboardLessonIndex,
   basicTypingScore,
   characterStates,
   emptyLedger,
   isUnmodifiedPrintableKey,
   isSpacebarShortcut,
+  keyboardSpaceInstruction,
+  keyboardSpaceNextLessonIndex,
   normalizeTrainingKey,
   resolveBasicTrainingSpaceEvent,
   nextLessonIndex,
@@ -112,6 +115,46 @@ test("keyboard curriculum has five ordered stages and at least 55 distinct exerc
     0,
   );
   assert.equal(nextLessonIndex(5, 0), 0);
+});
+
+test("keyboard lesson navigation stops at both course boundaries and crosses stage boundaries", () => {
+  assert.equal(adjacentKeyboardLessonIndex(0, 55, "previous"), null);
+  assert.equal(adjacentKeyboardLessonIndex(0, 55, "next"), 1);
+  assert.equal(adjacentKeyboardLessonIndex(9, 55, "next"), 10);
+  assert.equal(adjacentKeyboardLessonIndex(10, 55, "previous"), 9);
+  assert.equal(adjacentKeyboardLessonIndex(54, 55, "previous"), 53);
+  assert.equal(adjacentKeyboardLessonIndex(54, 55, "next"), null);
+  assert.equal(adjacentKeyboardLessonIndex(-1, 55, "next"), null);
+  assert.equal(adjacentKeyboardLessonIndex(0, 0, "next"), null);
+});
+
+test("completed Keyboard lessons advance with Space, while the final lesson stays complete", () => {
+  assert.equal(keyboardSpaceNextLessonIndex("ready", false, 0, 55), null);
+  assert.equal(keyboardSpaceNextLessonIndex("active", false, 0, 55), null);
+  assert.equal(keyboardSpaceNextLessonIndex("paused", false, 0, 55), null);
+  assert.equal(keyboardSpaceNextLessonIndex("completed", false, 0, 55), null);
+  assert.equal(keyboardSpaceNextLessonIndex("completed", true, 0, 55), 1);
+  assert.equal(keyboardSpaceNextLessonIndex("completed", true, 54, 55), null);
+  assert.equal(
+    keyboardSpaceInstruction("ready", false, 0, 55),
+    "Press Space to Start",
+  );
+  assert.equal(
+    keyboardSpaceInstruction("paused", false, 0, 55),
+    "Press Space to Resume",
+  );
+  assert.equal(
+    keyboardSpaceInstruction("active", false, 0, 55),
+    "Typing active · Space types normally",
+  );
+  assert.equal(
+    keyboardSpaceInstruction("completed", true, 0, 55),
+    "Press Space for Next Lesson",
+  );
+  assert.equal(
+    keyboardSpaceInstruction("completed", true, 54, 55),
+    "Course complete · select a lesson to repeat",
+  );
 });
 
 test("guided keyboard progression accepts only the expected character and counts errors", () => {

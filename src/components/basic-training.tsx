@@ -34,11 +34,11 @@ import { KEYS, read, write, type Session } from "@/lib/storage";
 import {
   basicTrainingSpaceAction,
   basicTrainingSpaceInstruction,
+  adjacentKeyboardLessonIndex,
   basicTypingScore,
   characterStates,
   emptyLedger,
   normalizeTrainingKey,
-  nextLessonIndex,
   recordGuidedKeystroke,
   recordTypingEdit,
   restoreBasicTrainingDraft,
@@ -47,6 +47,8 @@ import {
   shouldCompleteTarget,
   isUnmodifiedPrintableKey,
   shouldPlayIncorrectKeySound,
+  keyboardSpaceInstruction,
+  keyboardSpaceNextLessonIndex,
   validKeyboardLessonProgress,
   validBasicTrainingDraft,
   type BasicTrainingDraft,
@@ -140,8 +142,23 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
   const limit = timed ? draft.duration * 60_000 : Infinity;
   const finished = draft.status === "completed" || draft.status === "timed-out";
   const currentLesson = keyboardLessons[draft.lessonIndex % keyboardLessons.length];
+  const previousKeyboardLesson = adjacentKeyboardLessonIndex(
+    draft.lessonIndex,
+    keyboardLessons.length,
+    "previous",
+  );
+  const nextKeyboardLesson = adjacentKeyboardLessonIndex(
+    draft.lessonIndex,
+    keyboardLessons.length,
+    "next",
+  );
   const lessonComplete =
     draft.mode === "keyboard" && draft.input.length >= target.length;
+  const finalKeyboardLessonComplete =
+    draft.mode === "keyboard" &&
+    draft.status === "completed" &&
+    lessonComplete &&
+    nextKeyboardLesson === null;
   const score = basicTypingScore(draft.ledger, elapsed);
   const states = characterStates(target, draft.input);
   const title =
@@ -377,13 +394,55 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
     update({ ...current, status: "active" });
     focusPracticeSurface(true);
   }, [focusPracticeSurface, update]);
+
+  const loadKeyboardLesson = useCallback(
+    (lessonIndex: number, startImmediately = false) => {
+      if (lessonIndex < 0 || lessonIndex >= keyboardLessons.length) return;
+      const started = startImmediately ? Date.now() : null;
+      clock.current = { elapsed: 0, started };
+      setElapsed(0);
+      sessionId.current = startImmediately ? crypto.randomUUID() : "";
+      update({
+        ...draftRef.current,
+        mode: "keyboard",
+        lessonIndex,
+        itemIndex: 0,
+        completedItems: 0,
+        input: "",
+        elapsed: 0,
+        status: startImmediately ? "active" : "ready",
+        ledger: emptyLedger(),
+      });
+      setIncorrectAttempt(null);
+      focusPracticeSurface(true);
+    },
+    [focusPracticeSurface, update],
+  );
+
   const activateFromSpace = useCallback(() => {
-    const action = basicTrainingSpaceAction(draftRef.current.status);
+    const current = draftRef.current;
+    const action = basicTrainingSpaceAction(current.status);
+    const nextIndex = keyboardSpaceNextLessonIndex(
+      current.status,
+      current.mode === "keyboard" &&
+        current.input.length >= targetForDraft(current).length,
+      current.lessonIndex,
+      keyboardLessons.length,
+    );
+    if (action === "restart" && current.mode === "keyboard") {
+      if (nextIndex !== null) loadKeyboardLesson(nextIndex, true);
+      else if (
+        current.status === "completed" &&
+        current.input.length < targetForDraft(current).length
+      )
+        restart(false);
+      return;
+    }
     if (action === "start") begin();
     else if (action === "resume") resume();
     else if (action === "restart") restart(false);
     focusPracticeSurface(true);
-  }, [begin, focusPracticeSurface, restart, resume]);
+  }, [begin, focusPracticeSurface, loadKeyboardLesson, restart, resume]);
   const changeMode = (mode: BasicTrainingMode) => {
     if (mode === draft.mode) {
       focusPracticeSurface();
@@ -406,25 +465,8 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
     setIncorrectAttempt(null);
     focusPracticeSurface();
   };
-  const chooseKeyboardLesson = (lessonIndex: number) => {
-    if (lessonIndex < 0 || lessonIndex >= keyboardLessons.length) return;
-    clock.current = { elapsed: 0, started: null };
-    setElapsed(0);
-    sessionId.current = "";
-    update({
-      ...draftRef.current,
-      mode: "keyboard",
-      lessonIndex,
-      itemIndex: 0,
-      completedItems: 0,
-      input: "",
-      elapsed: 0,
-      status: "ready",
-      ledger: emptyLedger(),
-    });
-    setIncorrectAttempt(null);
-    focusPracticeSurface();
-  };
+  const chooseKeyboardLesson = (lessonIndex: number) =>
+    loadKeyboardLesson(lessonIndex);
   const edit = (value: string) => {
     const current = draftRef.current;
     if (
@@ -783,7 +825,7 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
                 <span>TARGET TEXT</span>
                 <span>
                   {draft.mode === "keyboard"
-                    ? `EXERCISE ${draft.lessonIndex + 1} / ${keyboardLessons.length} · ${draft.input.length}/${target.length}`
+                    ? `LESSON ${draft.lessonIndex + 1} / ${keyboardLessons.length} · ${draft.input.length}/${target.length}`
                     : draft.mode === "words" || draft.mode === "sentences"
                     ? `ITEM ${draft.itemIndex + 1} · ${draft.completedItems} COMPLETE · ${draft.input.length}/${target.length}`
                     : `${draft.input.length} / ${target.length}`}
@@ -807,15 +849,32 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
                 aria-live="polite"
                 aria-atomic="true"
               >
-                {basicTrainingSpaceInstruction(draft.status)}
+                {draft.mode === "keyboard"
+                  ? keyboardSpaceInstruction(
+                      draft.status,
+                      lessonComplete,
+                      draft.lessonIndex,
+                      keyboardLessons.length,
+                    )
+                  : basicTrainingSpaceInstruction(draft.status)}
               </p>
-              <button
-                type="button"
-                className="secondary training-space-fallback"
-                onClick={activateFromSpace}
-              >
-                Start / Focus Typing
-              </button>
+              {!finalKeyboardLessonComplete && (
+                <button
+                  type="button"
+                  className="secondary training-space-fallback"
+                  onClick={activateFromSpace}
+                >
+                  {draft.status === "completed" &&
+                  draft.mode === "keyboard" &&
+                  lessonComplete
+                    ? "Start Next Lesson"
+                    : draft.status === "paused"
+                      ? "Resume / Focus Typing"
+                      : draft.status === "active"
+                        ? "Focus Typing"
+                        : "Start / Focus Typing"}
+                </button>
+              )}
             </div>
             {guidedMode && (
               <KeyboardGuide target={target} input={draft.input} />
@@ -875,45 +934,27 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
               <h3 className="font-semibold">
                 {draft.status === "timed-out"
                   ? "Speed test complete"
-                  : lessonComplete
-                    ? "Lesson complete"
-                    : "Session complete"}
+                  : finalKeyboardLessonComplete
+                    ? "Course complete"
+                    : lessonComplete
+                      ? "Lesson complete"
+                      : "Session complete"}
               </h3>
               <p>
                 {score.wpm.toFixed(1)} WPM · {score.accuracy.toFixed(1)}%
                 accuracy · {score.correctCharacters} correct characters ·{" "}
                 {score.errors} errors in {timeLabel(elapsed)}.
               </p>
+              {finalKeyboardLessonComplete && (
+                <p className="keyboard-course-complete">
+                  You completed all {keyboardLessons.length} keyboard lessons.
+                  Choose any lesson to practice it again.
+                </p>
+              )}
               <div>
                 <button className="secondary" onClick={() => restart()}>
                   Retry
                 </button>
-                {lessonComplete && (
-                  <button
-                    className="primary"
-                    onClick={() => {
-                      const nextLesson = nextLessonIndex(
-                        draft.lessonIndex,
-                        keyboardLessons.length,
-                      );
-                      update({
-                        ...draftRef.current,
-                        lessonIndex: nextLesson,
-                        input: "",
-                        elapsed: 0,
-                        status: "ready",
-                        ledger: emptyLedger(),
-                      });
-                      clock.current = { elapsed: 0, started: null };
-                      setElapsed(0);
-                      sessionId.current = "";
-                      setIncorrectAttempt(null);
-                      focusPracticeSurface();
-                    }}
-                  >
-                    <Keyboard size={14} /> Next exercise
-                  </button>
-                )}
               </div>
             </div>
           )}
@@ -956,6 +997,44 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
               <h2>Session controls</h2>
               <span className="mono">{draft.status.toUpperCase()}</span>
             </div>
+            {draft.mode === "keyboard" && (
+              <div
+                className="keyboard-course-navigation"
+                aria-label="Lesson navigation"
+              >
+                <p aria-live="polite">
+                  Lesson {draft.lessonIndex + 1} / {keyboardLessons.length}
+                </p>
+                <div>
+                  <button
+                    className="secondary"
+                    type="button"
+                    disabled={previousKeyboardLesson === null}
+                    onClick={() => {
+                      if (previousKeyboardLesson !== null)
+                        loadKeyboardLesson(previousKeyboardLesson);
+                    }}
+                  >
+                    ← Previous Lesson
+                  </button>
+                  <button
+                    className={
+                      finished && lessonComplete && nextKeyboardLesson !== null
+                        ? "primary"
+                        : "secondary"
+                    }
+                    type="button"
+                    disabled={nextKeyboardLesson === null}
+                    onClick={() => {
+                      if (nextKeyboardLesson !== null)
+                        loadKeyboardLesson(nextKeyboardLesson);
+                    }}
+                  >
+                    Next Lesson →
+                  </button>
+                </div>
+              </div>
+            )}
             <div className="basic-training-control-list">
               {(draft.mode === "words" || draft.mode === "sentences") && (
                 <select

@@ -2535,6 +2535,32 @@ main:has(.basic-training) .session-code {
 .basic-training-mistakes .panel-title h2 {
   font-size: 11px;
 }
+.keyboard-course-navigation {
+  display: grid;
+  gap: 5px;
+  margin: 0 0 8px;
+}
+.keyboard-course-navigation > p {
+  color: var(--muted);
+  text-align: center;
+  font: 8px var(--font-mono), monospace;
+}
+.keyboard-course-navigation > div {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+.keyboard-course-navigation button {
+  min-width: 0;
+  min-height: 31px;
+  padding: 4px 3px;
+  font-size: 8px;
+  white-space: nowrap;
+}
+.keyboard-course-navigation button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
 .basic-training-control-list {
   display: grid;
   gap: 6px;
@@ -2591,6 +2617,10 @@ main:has(.basic-training) .session-code {
   margin-top: 3px;
   color: var(--muted);
   font-size: 10px;
+}
+.basic-training-results .keyboard-course-complete {
+  color: var(--text);
+  font-weight: 600;
 }
 .basic-training-results > div {
   display: flex;
