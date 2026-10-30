@@ -2150,14 +2150,21 @@ select {
 .target-char.pending { color: var(--muted); }
 .keycap { display: grid; min-width: 28px; height: 30px; place-items: center; border: 1px solid var(--line); background: var(--surface); color: var(--text); font: 600 11px var(--font-mono), monospace; }
 .keycap.next-key { border-color: #c96a18; background: #f19a3e; color: #21170e; }
+.keycap-shift-legend { align-self: end; color: var(--muted); font-size: 8px; line-height: 9px; }
+.keycap.next-key .keycap-shift-legend { color: #5b371b; }
 .keycap-wide { min-width: 62px; }
 .keycap-space { min-width: min(190px, 42vw); }
+.training-surface { min-width: 0; outline: none; -webkit-tap-highlight-color: transparent; }
+.training-surface:focus-visible { border-radius: 4px; outline: 2px solid #d67b26; outline-offset: 3px; }
+.target-char.current.error-current { background: #fce8e6; box-shadow: 0 0 0 2px #f1a7a0; color: #8a2018; }
+.training-feedback-error { color: #a52a20; }
 .keyboard-guide { background: var(--panel); }
 .keyboard-guide-heading { display: flex; align-items: center; gap: 7px; min-height: 19px; font-size: 10px; letter-spacing: .05em; }
 .keyboard-guide-heading > span { margin-left: auto; color: var(--muted); font: 10px var(--font-mono), monospace; letter-spacing: 0; }
 .keyboard-visual-scroll { overflow-x: auto; padding: 1px 0 4px; }
 .keyboard-visual { display: grid; justify-items: center; gap: 4px; min-width: max-content; margin-top: 9px; }
 .keyboard-key-row { display: flex; justify-content: center; gap: 4px; }
+.keyboard-key-row .keycap { display: flex; flex-direction: column; justify-content: center; }
 .keyboard-bottom-row { align-items: center; }
 .keycap.shift-required { border-style: dashed; border-color: #9a9a9a; }
 .finger-guide { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; width: min(100%, 520px); margin: 10px auto 0; }

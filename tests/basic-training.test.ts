@@ -13,7 +13,9 @@ import {
   characterStates,
   emptyLedger,
   nextLessonIndex,
+  recordGuidedKeystroke,
   recordTypingEdit,
+  restoreBasicTrainingDraft,
   shouldAdvanceItem,
   shouldCompleteTarget,
   validBasicTrainingDraft,
@@ -31,6 +33,22 @@ import {
   speedPassage,
   wordLists,
 } from "../src/lib/basic-training-content";
+
+const emptyDraft = {
+  version: 1 as const,
+  mode: "keyboard" as const,
+  difficulty: "beginner" as const,
+  duration: 1 as const,
+  lessonIndex: 0,
+  itemIndex: 0,
+  completedItems: 0,
+  input: "",
+  practiceText: "",
+  freeSource: "",
+  elapsed: 0,
+  status: "ready" as const,
+  ledger: emptyLedger(),
+};
 
 test("keyboard lessons progress through home row, letters, shift, numbers and punctuation", () => {
   assert.match(keyboardLessons[0].text, /asdf.*jkl;/);
@@ -89,6 +107,83 @@ test("finger target follows the next expected character and responds to edits", 
   assert.equal(nextRequiredCharacter("aB c", "aB"), " ");
   assert.equal(nextRequiredCharacter("aB c", "a"), "B");
   assert.equal(nextRequiredCharacter("aB c", "aB c"), "");
+});
+
+test("guided typing rejects wrong keys without advancing and counts every attempt", () => {
+  const first = recordGuidedKeystroke("", "x", "aB", emptyLedger());
+  assert.equal(first.accepted, false);
+  assert.equal(first.expected, "a");
+  assert.equal(first.input, "");
+  assert.equal(first.ledger.printableKeystrokes, 1);
+  assert.equal(first.ledger.errors, 1);
+  assert.deepEqual(first.ledger.mistypedKeys, { a: 1 });
+
+  const repeated = recordGuidedKeystroke(
+    first.input,
+    "x",
+    "aB",
+    first.ledger,
+  );
+  assert.equal(repeated.input, "");
+  assert.equal(repeated.ledger.errors, 2);
+  assert.equal(repeated.ledger.mistypedKeys.a, 2);
+
+  const corrected = recordGuidedKeystroke(
+    repeated.input,
+    "a",
+    "aB",
+    repeated.ledger,
+  );
+  assert.equal(corrected.accepted, true);
+  assert.equal(corrected.input, "a");
+  assert.equal(corrected.ledger.errors, 2);
+  assert.equal(basicTypingScore(corrected.ledger, 60_000).accuracy, 33.33333333333333);
+  assert.equal(nextRequiredCharacter("aB", corrected.input), "B");
+});
+
+test("guided word and sentence items advance only after their final correct character", () => {
+  let input = "";
+  let ledger = emptyLedger();
+  for (const key of "and") {
+    const attempt = recordGuidedKeystroke(input, key, "and", ledger);
+    assert.equal(attempt.accepted, true);
+    input = attempt.input;
+    ledger = attempt.ledger;
+    assert.equal(shouldAdvanceItem("words", "and", input), key === "d");
+  }
+
+  input = "";
+  for (const key of "Go.") {
+    const attempt = recordGuidedKeystroke(input, key, "Go.", emptyLedger());
+    input = attempt.input;
+    assert.equal(attempt.accepted, true);
+    assert.equal(shouldAdvanceItem("sentences", "Go.", input), key === ".");
+  }
+});
+
+test("restored active training pauses safely and explicit pause remains resumable", () => {
+  const active = { ...emptyDraft, status: "active" as const, elapsed: 2500 };
+  const paused = restoreBasicTrainingDraft(active);
+  assert.equal(paused.status, "paused");
+  assert.equal(paused.elapsed, 2500);
+  assert.equal(restoreBasicTrainingDraft(paused).status, "paused");
+  assert.equal(restoreBasicTrainingDraft(emptyDraft).status, "ready");
+});
+
+test("restoring legacy guided input truncates the first wrong character without credit", () => {
+  const input = "asxf";
+  const draft = {
+    ...emptyDraft,
+    input,
+    status: "paused" as const,
+    ledger: recordTypingEdit("", input, "asdf", emptyLedger()),
+  };
+  const restored = restoreBasicTrainingDraft(draft, "asdf");
+  assert.equal(restored.input, "as");
+  assert.equal(restored.ledger.errors, 1);
+  assert.equal(restored.ledger.retractedCorrect, 1);
+  assert.equal(basicTypingScore(restored.ledger, 60_000).correctCharacters, 2);
+  assert.equal(nextRequiredCharacter("asdf", restored.input), "d");
 });
 
 test("word and sentence banks provide all difficulty levels and speed passage content", () => {
