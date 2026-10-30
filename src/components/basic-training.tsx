@@ -165,6 +165,10 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
   }, [focusPracticeSurface, update]);
 
   useEffect(() => {
+    if (ready) focusPracticeSurface();
+  }, [ready, draft.mode, draft.status, focusPracticeSurface]);
+
+  useEffect(() => {
     if (!ready) return;
     const save = () => {
       const current = draftRef.current;
