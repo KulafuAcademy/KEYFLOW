@@ -38,6 +38,14 @@ import {
   randomVisualQuestion,
   type VisualCategory,
 } from "@/lib/task1-visuals";
+import AmplifyPicker from "./amplify-picker";
+import RemoteMaterials from "./remote-materials";
+import {
+  referencePrompt,
+  trackLabel,
+  writingVariant,
+  type AmplifyReference,
+} from "@/lib/amplify";
 import { drills, passages, prompts, type Prompt } from "@/lib/content";
 import {
   addedMistakes,
@@ -156,7 +164,20 @@ export default function Studio() {
   const exercise = (mode === "copy" ? passages : drills)[
     index % (mode === "copy" ? passages.length : drills.length)
   ];
-  const prompt = writingPrompts.find((p) => p.id === promptId)!;
+  const [remotePrompt, setRemotePrompt] = useState<Prompt | null>(null);
+  const [writingSource, setWritingSource] = useState<"local" | "amplify">(
+    "local",
+  );
+  const prompt =
+    remotePrompt?.id === promptId
+      ? remotePrompt
+      : writingPrompts.find((p) => p.id === promptId) ||
+        (drafts[promptId]?.reference
+          ? referencePrompt(drafts[promptId].reference!)
+          : prompts[0]);
+  const remoteTrack = prompt.amplify
+    ? writingVariant(prompt.amplify.questionType)!.track
+    : null;
   const [visualCategory, setVisualCategory] = useState<VisualCategory | "all">(
     "all",
   );
@@ -233,6 +254,7 @@ export default function Studio() {
       const next = {
         ...current,
         [promptId]: {
+          ...(prompt.amplify ? { reference: prompt.amplify } : {}),
           text: value,
           elapsed: ms,
           status: state,
@@ -242,7 +264,7 @@ export default function Studio() {
       setDrafts(next);
       persist(KEYS.drafts, next);
     },
-    [persist, promptId],
+    [persist, promptId, prompt.amplify],
   );
   const finish = useCallback(
     (
@@ -324,10 +346,12 @@ export default function Studio() {
         e.preventDefault();
       }
     };
+    window.addEventListener("pagehide", save);
     window.addEventListener("beforeunload", beforeUnload);
     document.addEventListener("visibilitychange", onHide);
     return () => {
       clearInterval(timer);
+      window.removeEventListener("pagehide", save);
       window.removeEventListener("beforeunload", beforeUnload);
       document.removeEventListener("visibilitychange", onHide);
     };
@@ -387,9 +411,16 @@ export default function Studio() {
     setConfirm(null);
     if (next === "writing") restore(promptId);
   }
-  function restore(id: string) {
+  function restore(id: string, selectedPrompt?: Prompt) {
     const d = read<Record<string, Draft>>(KEYS.drafts, {}, validDrafts)[id];
-    const p = writingPrompts.find((x) => x.id === id)!;
+    const p =
+      selectedPrompt ||
+      writingPrompts.find((x) => x.id === id) ||
+      (remotePrompt?.id === id
+        ? remotePrompt
+        : d?.reference
+          ? referencePrompt(d.reference)
+          : prompts[0]);
     const max = (p.task === 1 ? 20 : 40) * 60000;
     const ms = Math.min(d?.elapsed || 0, max);
     const state = d
@@ -419,6 +450,37 @@ export default function Studio() {
     setPromptId(id);
     restore(id);
     setNotice("");
+  }
+  function loadAmplify(selected: Prompt) {
+    leave();
+    const existing = read<Record<string, Draft>>(KEYS.drafts, {}, validDrafts)[
+      selected.id
+    ]?.reference;
+    const next = existing
+      ? {
+          ...selected,
+          task: existing.task,
+          amplify: existing,
+          title: referencePrompt(existing).title,
+        }
+      : selected;
+    setRemotePrompt(next);
+    setPromptId(next.id);
+    setWritingSource("amplify");
+    restore(next.id, next);
+    setNotice("");
+  }
+  function restoreAmplify(reference: AmplifyReference) {
+    loadAmplify(referencePrompt(reference));
+  }
+  function chooseWritingSource(source: "local" | "amplify") {
+    if (source === "amplify") {
+      if (statusRef.current === "active") pause();
+      setWritingSource(source);
+    } else {
+      if (prompt.amplify) selectPrompt(lastBasicPrompt.current);
+      setWritingSource("local");
+    }
   }
   function changeText(value: string) {
     if (finished || statusRef.current === "paused") return;
@@ -607,7 +669,11 @@ export default function Studio() {
               <span>
                 FOCUS MODE
                 <br />
-                <strong>IELTS / ACADEMIC</strong>
+                <strong>
+                  {remoteTrack
+                    ? `IELTS / ${trackLabel(remoteTrack).toUpperCase()}`
+                    : "IELTS / ACADEMIC"}
+                </strong>
               </span>
             </div>
           </div>
@@ -915,128 +981,190 @@ export default function Studio() {
                         ))}
                       </div>
                     ) : null}
-                    <label className="sr-only" htmlFor="exercise-select">
-                      {mode === "writing"
-                        ? "Select writing prompt"
-                        : "Select exercise"}
-                    </label>
-                    <select
-                      id="exercise-select"
-                      value={mode === "writing" ? promptId : index}
-                      disabled={
-                        mode !== "writing" &&
-                        (status === "active" || status === "paused")
-                      }
-                      onChange={(e) => {
-                        if (mode === "writing") selectPrompt(e.target.value);
-                        else {
-                          reset();
-                          setIndex(Number(e.target.value));
-                        }
-                      }}
-                    >
-                      {(mode === "writing"
-                        ? availablePrompts
-                        : mode === "copy"
-                          ? passages
-                          : drills
-                      ).map((e, i) => (
-                        <option
-                          key={e.id}
-                          value={mode === "writing" ? e.id : i}
-                        >
+                    {!(mode === "writing" && writingSource === "amplify") && (
+                      <>
+                        <label className="sr-only" htmlFor="exercise-select">
                           {mode === "writing"
-                            ? `Task ${"task" in e ? e.task : ""} · `
-                            : ""}
-                          {e.title}
-                          {mode === "writing" && drafts[e.id]?.text
-                            ? " · saved"
-                            : ""}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                {mode === "writing" && prompt.task === 1 && (
-                  <div
-                    className="task1-tools"
-                    aria-label="Task 1 practice options"
-                  >
-                    <div className="practice-level">
-                      <div
-                        className="segmented"
-                        aria-label="Task 1 practice category"
-                      >
-                        <button
-                          className={!visualPractice ? "chosen" : ""}
-                          aria-pressed={!visualPractice}
-                          onClick={() => selectPrompt(lastBasicPrompt.current)}
-                        >
-                          Basic Practice
-                        </button>
-                        <button
-                          className={visualPractice ? "chosen" : ""}
-                          aria-pressed={visualPractice}
-                          onClick={() => {
-                            setVisualCategory("all");
-                            selectPrompt(lastVisualPrompt.current);
-                          }}
-                        >
-                          Visual Practice
-                        </button>
-                      </div>
-                      <p>
-                        {visualPractice
-                          ? "Interpret realistic visuals. Develop your overview and comparisons."
-                          : "Build typing fluency and writing structure with the original simple questions."}
-                      </p>
-                    </div>
-                    {visualPractice && (
-                      <div className="visual-selection">
-                        <label htmlFor="visual-category">Question type</label>
+                            ? "Select writing prompt"
+                            : "Select exercise"}
+                        </label>
                         <select
-                          id="visual-category"
-                          value={visualCategory}
+                          id="exercise-select"
+                          value={mode === "writing" ? promptId : index}
+                          disabled={
+                            mode !== "writing" &&
+                            (status === "active" || status === "paused")
+                          }
                           onChange={(e) => {
-                            const category = e.target.value as
-                              VisualCategory | "all";
-                            setVisualCategory(category);
-                            selectPrompt(questionsInCategory(category)[0].id);
+                            if (mode === "writing")
+                              selectPrompt(e.target.value);
+                            else {
+                              reset();
+                              setIndex(Number(e.target.value));
+                            }
                           }}
                         >
-                          <option value="all">All visual types (21)</option>
-                          {visualCategories.map((c) => (
-                            <option key={c.id} value={c.id}>
-                              {c.label} (3)
+                          {(mode === "writing"
+                            ? availablePrompts
+                            : mode === "copy"
+                              ? passages
+                              : drills
+                          ).map((e, i) => (
+                            <option
+                              key={e.id}
+                              value={mode === "writing" ? e.id : i}
+                            >
+                              {mode === "writing"
+                                ? `Task ${"task" in e ? e.task : ""} · `
+                                : ""}
+                              {e.title}
+                              {mode === "writing" && drafts[e.id]?.text
+                                ? " · saved"
+                                : ""}
                             </option>
                           ))}
                         </select>
-                        <button
-                          className="secondary compact"
-                          onClick={() =>
-                            selectPrompt(
-                              randomVisualQuestion(visualCategory, promptId).id,
-                            )
-                          }
-                        >
-                          Random Question <ArrowRight size={13} />
-                        </button>
-                        <span className="visual-question-count">
-                          {questionsInCategory(visualCategory).length} questions
-                          · saves separately
-                        </span>
-                      </div>
+                      </>
                     )}
                   </div>
+                </div>
+                {mode === "writing" && (
+                  <>
+                    <div
+                      className="writing-source"
+                      aria-label="Writing question source"
+                    >
+                      <button
+                        className={writingSource === "local" ? "selected" : ""}
+                        aria-pressed={writingSource === "local"}
+                        onClick={() => chooseWritingSource("local")}
+                      >
+                        KEYFLOW built-ins
+                      </button>
+                      <button
+                        className={
+                          writingSource === "amplify" ? "selected" : ""
+                        }
+                        aria-pressed={writingSource === "amplify"}
+                        onClick={() => chooseWritingSource("amplify")}
+                      >
+                        AMPLIFY question bank
+                      </button>
+                    </div>
+                    {writingSource === "amplify" && (
+                      <AmplifyPicker
+                        drafts={drafts}
+                        onLoad={loadAmplify}
+                        onRestore={restoreAmplify}
+                      />
+                    )}
+                  </>
                 )}
+                {mode === "writing" &&
+                  writingSource === "local" &&
+                  !prompt.amplify &&
+                  prompt.task === 1 && (
+                    <div
+                      className="task1-tools"
+                      aria-label="Task 1 practice options"
+                    >
+                      <div className="practice-level">
+                        <div
+                          className="segmented"
+                          aria-label="Task 1 practice category"
+                        >
+                          <button
+                            className={!visualPractice ? "chosen" : ""}
+                            aria-pressed={!visualPractice}
+                            onClick={() =>
+                              selectPrompt(lastBasicPrompt.current)
+                            }
+                          >
+                            Basic Practice
+                          </button>
+                          <button
+                            className={visualPractice ? "chosen" : ""}
+                            aria-pressed={visualPractice}
+                            onClick={() => {
+                              setVisualCategory("all");
+                              selectPrompt(lastVisualPrompt.current);
+                            }}
+                          >
+                            Visual Practice
+                          </button>
+                        </div>
+                        <p>
+                          {visualPractice
+                            ? "Interpret realistic visuals. Develop your overview and comparisons."
+                            : "Build typing fluency and writing structure with the original simple questions."}
+                        </p>
+                      </div>
+                      {visualPractice && (
+                        <div className="visual-selection">
+                          <label htmlFor="visual-category">Question type</label>
+                          <select
+                            id="visual-category"
+                            value={visualCategory}
+                            onChange={(e) => {
+                              const category = e.target.value as
+                                VisualCategory | "all";
+                              setVisualCategory(category);
+                              selectPrompt(questionsInCategory(category)[0].id);
+                            }}
+                          >
+                            <option value="all">All visual types (21)</option>
+                            {visualCategories.map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.label} (3)
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            className="secondary compact"
+                            onClick={() =>
+                              selectPrompt(
+                                randomVisualQuestion(visualCategory, promptId)
+                                  .id,
+                              )
+                            }
+                          >
+                            Random Question <ArrowRight size={13} />
+                          </button>
+                          <span className="visual-question-count">
+                            {questionsInCategory(visualCategory).length}{" "}
+                            questions · saves separately
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 {mode === "writing" ? (
                   <div className="writing-layout">
                     <div className="prompt">
                       <div className="eyebrow">
-                        ACADEMIC WRITING / TASK {prompt.task}
+                        {remoteTrack
+                          ? `${trackLabel(remoteTrack).toUpperCase()} WRITING`
+                          : "ACADEMIC WRITING"}{" "}
+                        / TASK {prompt.task}
                       </div>
                       <h2>{prompt.title}</h2>
-                      <p>{prompt.question}</p>
+                      <p
+                        className={
+                          prompt.amplify ? "amplify-question-copy" : undefined
+                        }
+                      >
+                        {prompt.question}
+                      </p>
+                      {prompt.unavailable && (
+                        <p className="notice" role="status">
+                          Saved answer restored independently of the question
+                          bank. Hidden questions are excluded from new
+                          selections.
+                        </p>
+                      )}
+                      {prompt.amplify && (
+                        <RemoteMaterials key={prompt.id} prompt={prompt} />
+                      )}
                       {prompt.visual && (
                         <QuestionVisual
                           key={prompt.id}
@@ -1071,13 +1199,16 @@ export default function Studio() {
                       )}
                       <p className="prompt-instructions">
                         Write at least {minimum} words.{" "}
-                        {prompt.task === 2
-                          ? "Give reasons for your answer and include relevant examples from your own knowledge or experience."
-                          : "Summarise the key features and relevant comparisons."}
+                        {prompt.amplify
+                          ? "Follow the original instructions supplied by AMPLIFY above."
+                          : prompt.task === 2
+                            ? "Give reasons for your answer and include relevant examples from your own knowledge or experience."
+                            : "Summarise the key features and relevant comparisons."}
                       </p>
                       <p className="source-note">
-                        Original KEYFLOW practice prompt. No official IELTS
-                        affiliation.
+                        {prompt.amplify
+                          ? "Question supplied by AMPLIFY’s published Writing bank."
+                          : "Original KEYFLOW practice prompt. No official IELTS affiliation."}
                       </p>
                     </div>
                     <div className="writing-editor">

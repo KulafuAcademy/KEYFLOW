@@ -1,3 +1,4 @@
+import type { AmplifyReference } from "./amplify";
 import type { QuestionVisual, VisualCategory } from "./task1-visuals";
 
 export type Exercise = {
@@ -83,6 +84,10 @@ export const passages: Exercise[] = [
   },
 ];
 export type Prompt = {
+  amplify?: AmplifyReference;
+  supportingUrl?: string;
+  materials?: { index: number; kind: "image" | "pdf" }[];
+  unavailable?: boolean;
   visual?: QuestionVisual;
   category?: VisualCategory;
   id: string;

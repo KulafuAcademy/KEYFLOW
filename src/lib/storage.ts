@@ -1,3 +1,4 @@
+import { validReference, type AmplifyReference } from "./amplify";
 import type { Status } from "./metrics";
 export type Mode = "drill" | "copy" | "writing";
 export type Session = {
@@ -14,6 +15,7 @@ export type Session = {
   status: Status;
 };
 export type Draft = {
+  reference?: AmplifyReference;
   text: string;
   elapsed: number;
   status: Status;
@@ -79,7 +81,8 @@ export function validDrafts(x: unknown): boolean {
         ["ready", "active", "paused", "completed", "timed-out"].includes(
           v.status,
         ) &&
-        typeof v.updated === "string",
+        typeof v.updated === "string" &&
+        (v.reference === undefined || validReference(v.reference)),
     )
   );
 }

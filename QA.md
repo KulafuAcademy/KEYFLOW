@@ -85,3 +85,17 @@ The full 20-minute countdown was not waited out in real time; boundary arithmeti
 ### Release status
 
 Prepared for PR review. No feature code has been merged into `main` or deployed to production. A branch-only Vercel deployment rule suppresses the automatic preview for this feature branch until approval; `main` automatic deployment remains enabled. The current public production application is unchanged.
+
+## AMPLIFY Writing integration — 30 October 2026
+
+- Inspected KEYFLOW's existing practice/session/draft lifecycle, AMPLIFY's current GitHub routes, and the live Supabase schema, RLS/grants, exact type/status aggregates and private image bucket using read-only queries.
+- Selected an additive AMPLIFY read-only API plus same-origin KEYFLOW gateway. No question/status/schema/storage-object changes and no Supabase credentials in KEYFLOW.
+- AMPLIFY: 18 tests, lint, TypeScript and production build passed. Its additive API was merged through PR #18 and deployed Ready.
+- KEYFLOW: 27 tests, lint, TypeScript and production build passed. Tests cover all seven Writing types, hidden/unpublished rejection, no guessed legacy variant, shared Task 2 filtering, safe material links, bounded indexes, complete pagination/deduplication, partial-page failures, no-store/GET-only fixed-origin gateway, hidden detail rejection and backward-compatible draft references.
+- Live API: 182 unique published Writing questions across all seven labels, matching the DB's read-only aggregate. Four keyset pages were read completely. A private uploaded image returned 200, image/png, 42,688 bytes, no-store; POST returned 405.
+- Browser fixture: loaded General Training Task 1, typed/saved/paused an answer, then changed only the disposable fixture to hidden. The new-question list became empty. After a full reload, the answer restored paused with its original 20-minute/150-word settings and remained editable.
+- Browser fixture outage: the picker displayed an unavailable/retry error while the saved answer could be resumed, edited, paused and exported. Built-in practice remained available. No live database statuses were modified for these tests.
+- Browser live bank: all 182 entries and all seven subtype labels appeared. Loaded a representative of every subtype; Task 1 displayed 20:00/150 and Task 2 displayed 40:00/250 with the stored track label. Two private supporting images loaded at natural dimensions 1162×350 and 1178×498; enlargement worked. Empty search filters displayed the proper empty state.
+- A real-bank Task 2 answer survived reload and separate saved-answer restoration, retaining text, paused state and original task settings. Completion recorded 21 words and time used, with no fabricated accuracy/band score.
+- Browser verification uses Chromium. Responsive iPhone/iPad/desktop checks are recorded below; physical Safari/PWA hardware is not claimed. External supporting-document permissions remain with their owners. The full 20/40-minute durations were not waited out; shared deadline logic remains unit tested.
+- Responsive integration checks passed at requested 1366×900 desktop, 1024×768 iPad landscape, 768×1024 iPad portrait and 390×844 iPhone sizes. At current browser zoom the exposed CSS widths were 1242/931/698/355; document widths remained smaller in every case. Tablet portrait/mobile stacked the prompt above the editor; landscape/desktop retained the split view. Mobile bank inputs/selects use 16 px text to avoid Safari's small-input zoom behavior, with touch-sized controls.

@@ -31,6 +31,12 @@ The first input starts the timer. Timing uses wall-clock timestamps rather than 
 
 Simulation pauses are a training convenience; the real IELTS exam clock does not pause. Drafts restore paused after reopening and exclude time with the tab closed. Each prompt retains its own draft and elapsed time. Draft text is written synchronously on edits and elapsed time is checkpointed every second and before leaving. Active drafts trigger the browser's standard unload warning. Storage failures display an export reminder; the editor continues to work in memory. Do not use separate tabs for concurrent edits of the same draft.
 
+## AMPLIFY question bank
+
+Writing practice also supports AMPLIFY’s published Writing bank, including Academic and General Training Task 1/2 variants. Select **AMPLIFY question bank**, filter/search, then load a question. Supporting images are served securely through same-origin read-only APIs. Built-in practice remains available during outages. Saved remote answers keep only a source reference and their original task settings, so they can be restored even if the original question is hidden. Question bodies and assets are not duplicated in localStorage.
+
+No Supabase keys are required in KEYFLOW. `AMPLIFY_API_ORIGIN` is an optional server-only origin override; production defaults to AMPLIFY’s public domain. See [integration details](docs/amplify-writing-integration.md).
+
 ## Storage and privacy
 
 Versioned localStorage keys: `keyflow.history.v1`, `keyflow.drafts.v1`, `keyflow.preferences.v1`. No response or progress is sent to a server. Storage is specific to browser and origin. Clearing site data or using private browsing can remove progress. Export important writing. Drafts do not transfer from localhost/preview to production.
