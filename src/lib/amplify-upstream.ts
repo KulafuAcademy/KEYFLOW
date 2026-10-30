@@ -26,18 +26,20 @@ export function upstreamOrigin(
 export async function fetchUpstream(
   path: string,
   fetcher: typeof fetch = fetch,
+  accessToken?: string | null,
 ) {
   return fetcher(`${upstreamOrigin()}${path}`, {
     method: "GET",
     cache: "no-store",
     redirect: "error",
     signal: AbortSignal.timeout(12000),
-    headers: { Accept: "application/json" },
+    headers: { Accept: "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
   });
 }
 export async function getBankPage(
   cursor: string | null,
   fetcher: typeof fetch = fetch,
+  accessToken?: string | null,
 ) {
   if (cursor && !UUID.test(cursor))
     return Response.json(
@@ -48,6 +50,7 @@ export async function getBankPage(
     const r = await fetchUpstream(
       `/api/writing-questions${cursor ? "?cursor=" + encodeURIComponent(cursor) : ""}`,
       fetcher,
+      accessToken,
     );
     if (!r.ok) throw Error("Upstream unavailable");
     const body = await r.json();
@@ -81,6 +84,7 @@ export async function getBankPage(
 export async function getBankQuestion(
   id: string,
   fetcher: typeof fetch = fetch,
+  accessToken?: string | null,
 ) {
   if (!UUID.test(id))
     return Response.json(
@@ -88,7 +92,7 @@ export async function getBankQuestion(
       { status: 400, headers: noStore },
     );
   try {
-    const r = await fetchUpstream(`/api/writing-questions/${id}`, fetcher);
+    const r = await fetchUpstream(`/api/writing-questions/${id}`, fetcher, accessToken);
     if (r.status === 404)
       return Response.json(
         {

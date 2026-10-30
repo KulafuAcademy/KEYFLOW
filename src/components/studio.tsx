@@ -31,6 +31,7 @@ import {
   Zap,
 } from "lucide-react";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import {
   visualCategories,
   visualQuestions,
@@ -58,6 +59,7 @@ import {
 } from "@/lib/metrics";
 import {
   KEYS,
+  setStaffStorageNamespace,
   appendSession,
   read,
   validDrafts,
@@ -138,6 +140,7 @@ function IconButton({
 }
 
 export default function Studio() {
+  const router = useRouter();
   const [loaded, setLoaded] = useState(false),
     [view, setView] = useState<View>("drill"),
     [theme, setTheme] = useState("light");
@@ -211,7 +214,14 @@ export default function Studio() {
     return ok;
   }, []);
   useEffect(() => {
-    const preferences = read<{ theme: string; duration: number }>(
+    let cancelled = false;
+    void fetch("/api/staff/me", { cache: "no-store" }).then((response) => {
+      if (!response.ok) throw new Error("Staff session expired");
+      return response.json() as Promise<{ id: string }>;
+    }).then(({ id }) => {
+      if (cancelled) return;
+      setStaffStorageNamespace(id);
+      const preferences = read<{ theme: string; duration: number }>(
       KEYS.preferences,
       {
         theme: window.matchMedia("(prefers-color-scheme: dark)").matches
@@ -226,15 +236,17 @@ export default function Studio() {
         ["light", "dark"].includes(String(x.theme)) &&
         "duration" in x &&
         [1, 3, 5].includes(Number(x.duration)),
-    );
-    startTransition(() => {
-      setTheme(preferences.theme);
-      setDuration(preferences.duration);
-      setHistory(read(KEYS.history, [], validHistory));
-      setDrafts(read(KEYS.drafts, {}, validDrafts));
-      setLoaded(true);
-    });
-  }, []);
+      );
+      startTransition(() => {
+        setTheme(preferences.theme);
+        setDuration(preferences.duration);
+        setHistory(read(KEYS.history, [], validHistory));
+        setDrafts(read(KEYS.drafts, {}, validDrafts));
+        setLoaded(true);
+      });
+    }).catch(() => { if (!cancelled) router.replace("/staff/login"); });
+    return () => { cancelled = true; };
+  }, [router]);
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     if (loaded)
@@ -610,9 +622,7 @@ export default function Studio() {
             <div>
               <strong>Your practice. Your device.</strong>
               <p>
-                Progress saves in this browser.
-                <br />
-                No account. No distractions.
+                Progress saves privately in this browser.
               </p>
             </div>
           </div>
@@ -628,6 +638,7 @@ export default function Studio() {
             >
               {theme === "light" ? <Moon size={17} /> : <Sun size={17} />}
             </IconButton>
+            <a className="staff-signout" href="/staff/logout" aria-label="Sign out">SIGN OUT</a>
           </div>
         </div>
       </aside>

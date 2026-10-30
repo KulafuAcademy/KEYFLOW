@@ -26,13 +26,37 @@ export const KEYS = {
   drafts: "keyflow.drafts.v1",
   preferences: "keyflow.preferences.v1",
 };
+let staffStorageNamespace: string | null = null;
+export function setStaffStorageNamespace(userId: string) {
+  if (!userId || staffStorageNamespace === userId) return;
+  const prefix = "keyflow.";
+  const legacyKeys = Object.values(KEYS);
+  try {
+    for (const key of legacyKeys) {
+      const scoped = `${prefix}${userId}.${key.slice(prefix.length)}`;
+      if (!localStorage.getItem(scoped)) {
+        const legacy = localStorage.getItem(key);
+        if (legacy !== null) localStorage.setItem(scoped, legacy);
+      }
+    }
+    legacyKeys.forEach((key) => localStorage.removeItem(key));
+  } catch {
+    // Authentication must remain usable when browser storage is disabled.
+  } finally {
+    staffStorageNamespace = userId;
+  }
+}
+function namespacedKey(key: string) {
+  if (!staffStorageNamespace || !key.startsWith("keyflow.")) return key;
+  return `keyflow.${staffStorageNamespace}.${key.slice("keyflow.".length)}`;
+}
 export function read<T>(
   key: string,
   fallback: T,
   validate: (x: unknown) => boolean,
 ): T {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = localStorage.getItem(namespacedKey(key));
     if (!raw) return fallback;
     const data: unknown = JSON.parse(raw);
     return validate(data) ? (data as T) : fallback;
@@ -42,7 +66,7 @@ export function read<T>(
 }
 export function write(key: string, value: unknown): boolean {
   try {
-    localStorage.setItem(key, JSON.stringify(value));
+    localStorage.setItem(namespacedKey(key), JSON.stringify(value));
     return true;
   } catch {
     return false;
