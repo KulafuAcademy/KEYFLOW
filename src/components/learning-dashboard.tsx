@@ -99,6 +99,45 @@ export default function LearningDashboard({
     },
   ];
   const normalizedGoal = stats.goalWpm;
+  const achievementTiers = [
+    {
+      id: "bronze" as const,
+      label: "BRONZE",
+      count: keyboardProgress.bronze,
+      percentage: keyboardProgress.percentage,
+      requirement: "85% accuracy · no WPM minimum",
+    },
+    {
+      id: "silver" as const,
+      label: "SILVER",
+      count: keyboardProgress.silver,
+      percentage: keyboardProgress.silverPercentage,
+      requirement: "30 WPM · 90% accuracy",
+    },
+    {
+      id: "gold" as const,
+      label: "GOLD",
+      count: keyboardProgress.gold,
+      percentage: keyboardProgress.goldPercentage,
+      requirement: "40 WPM · 95% accuracy",
+    },
+  ];
+  const activeChallenge = achievementTiers.find(
+    (tier) => tier.id === keyboardProgress.activeChallenge,
+  );
+  const activeChallengeIndex = achievementTiers.findIndex(
+    (tier) => tier.id === keyboardProgress.activeChallenge,
+  );
+  const progressTiers = achievementTiers.map((tier, index) => ({
+    ...tier,
+    active: index === activeChallengeIndex,
+    status:
+      activeChallengeIndex < 0 || index < activeChallengeIndex
+        ? "COMPLETED"
+        : index === activeChallengeIndex
+          ? "ACTIVE CHALLENGE"
+          : "LOCKED IN ORDER",
+  }));
 
   return (
     <div className="learning-dashboard">
@@ -128,35 +167,52 @@ export default function LearningDashboard({
             </div>
           </div>
           <div className="dashboard-achievement-counts">
-            <strong>
-              {keyboardProgress.cleared} / {keyboardProgress.total}
-            </strong>
-            <span>cleared</span>
-            <i aria-hidden="true" />
-            <strong>{keyboardProgress.excellent}</strong>
-            <span>excellent</span>
+            <strong>{keyboardProgress.total}</strong>
+            <span>exercises</span>
           </div>
         </div>
-        <div
-          className="goal-track dashboard-achievement-track"
-          role="progressbar"
-          aria-label="Basic Training exercises cleared"
-          aria-valuemin={0}
-          aria-valuemax={keyboardProgress.total}
-          aria-valuenow={keyboardProgress.cleared}
-          aria-valuetext={`${keyboardProgress.cleared} of ${keyboardProgress.total} exercises cleared (${keyboardProgress.percentage.toFixed(1)}%)`}
-        >
-          <span
-            style={{
-              width: `${keyboardProgress.percentage}%`,
-              minWidth: keyboardProgress.cleared > 0 ? 2 : 0,
-            }}
-          />
+        <div className="dashboard-achievement-medals" aria-label="Highest medal counts">
+          <span className="bronze"><strong>{keyboardProgress.bronzeMedals}</strong> BRONZE MEDALS</span>
+          <span className="silver"><strong>{keyboardProgress.silverMedals}</strong> SILVER MEDALS</span>
+          <span className="gold"><strong>{keyboardProgress.goldMedals}</strong> GOLD MEDALS</span>
+          <span className="perfect"><strong>{keyboardProgress.perfect}</strong> ★ PERFECT</span>
+        </div>
+        <div className="dashboard-achievement-tiers">
+          {progressTiers.map((tier) => (
+            <div className={`dashboard-achievement-tier ${tier.id}${tier.active ? " active" : ""}`} key={tier.id}>
+              <div className="dashboard-achievement-tier-heading">
+                <strong>{tier.label}</strong>
+                <span>{tier.count} / {keyboardProgress.total} · {tier.percentage.toFixed(1)}%</span>
+                <span className="dashboard-achievement-tier-status">{tier.status}</span>
+              </div>
+              <div
+                className="goal-track dashboard-achievement-track"
+                role="progressbar"
+                aria-label={`${tier.label} progress`}
+                aria-valuemin={0}
+                aria-valuemax={keyboardProgress.total}
+                aria-valuenow={tier.count}
+                aria-valuetext={`${tier.count} of ${keyboardProgress.total} ${tier.label} exercises (${tier.percentage.toFixed(1)}%)`}
+              >
+                <span style={{ width: `${tier.percentage}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="dashboard-active-challenge" aria-live="polite">
+          <strong>
+            {activeChallenge ? `Active Challenge · ${activeChallenge.label}` : "All Challenges Complete"}
+          </strong>
+          <span>
+            {activeChallenge?.requirement ??
+              `All ${keyboardProgress.total} exercises have GOLD.`}
+          </span>
         </div>
         <div className="dashboard-achievement-footer">
-          <span>{keyboardProgress.percentage.toFixed(1)}% CLEAR</span>
           <button className="primary" onClick={onContinueTraining}>
-            Continue Training <ArrowRight size={14} />
+            {keyboardProgress.nextUnclearedIndex === null
+              ? "Review Training"
+              : "Continue Training"} <ArrowRight size={14} />
           </button>
         </div>
       </section>

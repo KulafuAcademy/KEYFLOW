@@ -24,9 +24,14 @@ import { elapsedMs, timeLabel, type Clock } from "@/lib/metrics";
 import {
   cumulativeErrorAccuracy,
   evaluateKeyboardAchievement,
+  keyboardAchievementIsPerfect,
+  keyboardAchievementMedal,
+  keyboardAchievementWasAttempted,
   mergeKeyboardAchievement,
+  shouldPlayAchievementSound,
   validKeyboardAchievements,
   type KeyboardAchievement,
+  type KeyboardAttemptAchievement,
 } from "@/lib/basic-training-achievements";
 import {
   characterNeedsShift,
@@ -130,6 +135,9 @@ export default function BasicTraining({
   const [ready, setReady] = useState(false);
   const [storageUnavailable, setStorageUnavailable] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [achievementSoundEnabled, setAchievementSoundEnabled] = useState(true);
+  const [completedAttemptAchievement, setCompletedAttemptAchievement] =
+    useState<KeyboardAttemptAchievement | null>(null);
   const [completedLessonIds, setCompletedLessonIds] = useState<string[]>([]);
   const [elapsed, setElapsed] = useState(0);
   const clock = useRef<Clock>({ elapsed: 0, started: null });
@@ -145,6 +153,9 @@ export default function BasicTraining({
   const sessionId = useRef("");
   const audioContext = useRef<AudioContext | null>(null);
   const activeErrorTone = useRef<OscillatorNode | null>(null);
+  const achievementAudioContext = useRef<AudioContext | null>(null);
+  const activeAchievementTones = useRef<OscillatorNode[]>([]);
+  const achievementSoundPlayed = useRef(false);
   const completedLessonIdsRef = useRef<string[]>([]);
   const achievementsRef = useRef(achievements);
   const initialized = useRef(false);
@@ -234,6 +245,11 @@ export default function BasicTraining({
       true,
       (value) => typeof value === "boolean",
     );
+    const savedAchievementSound = read(
+      KEYS.basicTrainingAchievementSound,
+      true,
+      (value) => typeof value === "boolean",
+    );
     const savedLessonProgress = read(
       KEYS.basicTrainingLessons,
       [],
@@ -270,6 +286,7 @@ export default function BasicTraining({
       clock.current = { elapsed: nextLessonDraft.elapsed, started: null };
       setElapsed(nextLessonDraft.elapsed);
       setSoundEnabled(savedSound);
+      setAchievementSoundEnabled(savedAchievementSound);
       setCompletedLessonIds(savedLessonProgress);
       update(nextLessonDraft);
       setReady(true);
@@ -292,6 +309,18 @@ export default function BasicTraining({
       audioContext.current = null;
       activeErrorTone.current = null;
       if (context && context.state !== "closed") void context.close();
+      activeAchievementTones.current.forEach((tone) => {
+        try {
+          tone.stop();
+        } catch {
+          // The tone may already have ended during cleanup.
+        }
+      });
+      activeAchievementTones.current = [];
+      const achievementContext = achievementAudioContext.current;
+      achievementAudioContext.current = null;
+      if (achievementContext && achievementContext.state !== "closed")
+        void achievementContext.close();
     },
     [],
   );
@@ -329,6 +358,87 @@ export default function BasicTraining({
     }
   }, [soundEnabled]);
 
+  const prepareAchievementAudio = useCallback(
+    (enabled = achievementSoundEnabled) => {
+      if (!enabled || typeof window === "undefined") return null;
+      try {
+        const AudioContextConstructor =
+          window.AudioContext ??
+          (window as Window & { webkitAudioContext?: typeof AudioContext })
+            .webkitAudioContext;
+        if (!AudioContextConstructor) return null;
+        const context =
+          achievementAudioContext.current ?? new AudioContextConstructor();
+        achievementAudioContext.current = context;
+        if (context.state === "suspended")
+          void context.resume().catch(() => {});
+        return context;
+      } catch {
+        return null;
+      }
+    },
+    [achievementSoundEnabled],
+  );
+
+  const stopAchievementSound = useCallback(() => {
+    const tones = activeAchievementTones.current;
+    activeAchievementTones.current = [];
+    tones.forEach((tone) => {
+      try {
+        tone.stop();
+      } catch {
+        // The tone may already have ended or stopped.
+      }
+    });
+  }, []);
+
+  const playAchievementSound = useCallback(() => {
+    const context = prepareAchievementAudio();
+    if (!context) return;
+    const schedule = () => {
+      if (context.state !== "running") return;
+      try {
+        stopAchievementSound();
+        const start = context.currentTime + 0.015;
+        const notes = [
+          { frequency: 660, offset: 0, duration: 0.15 },
+          { frequency: 880, offset: 0.18, duration: 0.21 },
+        ];
+        const tones: OscillatorNode[] = [];
+        for (const note of notes) {
+          const oscillator = context.createOscillator();
+          const gain = context.createGain();
+          const noteStart = start + note.offset;
+          const noteEnd = noteStart + note.duration;
+          oscillator.type = "sine";
+          oscillator.frequency.setValueAtTime(note.frequency, noteStart);
+          gain.gain.setValueAtTime(0.0001, noteStart);
+          gain.gain.linearRampToValueAtTime(0.045, noteStart + 0.018);
+          gain.gain.setValueAtTime(0.045, noteEnd - 0.045);
+          gain.gain.exponentialRampToValueAtTime(0.0001, noteEnd);
+          oscillator.connect(gain);
+          gain.connect(context.destination);
+          oscillator.onended = () => {
+            oscillator.disconnect();
+            gain.disconnect();
+            activeAchievementTones.current = activeAchievementTones.current.filter(
+              (tone) => tone !== oscillator,
+            );
+          };
+          oscillator.start(noteStart);
+          oscillator.stop(noteEnd + 0.01);
+          tones.push(oscillator);
+        }
+        activeAchievementTones.current = tones;
+      } catch {
+        // Audio is optional; browser policy or device audio may prevent playback.
+        stopAchievementSound();
+      }
+    };
+    if (context.state === "running") schedule();
+    else void context.resume().then(schedule).catch(() => {});
+  }, [prepareAchievementAudio, stopAchievementSound]);
+
   const toggleSound = () => {
     const next = !soundEnabled;
     setSoundEnabled(next);
@@ -340,6 +450,15 @@ export default function BasicTraining({
         activeErrorTone.current = null;
       }
     }
+  };
+
+  const toggleAchievementSound = () => {
+    const next = !achievementSoundEnabled;
+    setAchievementSoundEnabled(next);
+    if (!write(KEYS.basicTrainingAchievementSound, next))
+      setStorageUnavailable(true);
+    if (next) prepareAchievementAudio(true);
+    else stopAchievementSound();
   };
 
   useEffect(() => {
@@ -406,6 +525,10 @@ export default function BasicTraining({
             current.ledger.errors,
           ),
         );
+        const previousMedal = keyboardAchievementMedal(
+          achievementsRef.current.find((item) => item.lessonId === lesson.id),
+        );
+        setCompletedAttemptAchievement(achievement);
         const nextAchievements = mergeKeyboardAchievement(
           achievementsRef.current,
           lesson.id,
@@ -415,7 +538,21 @@ export default function BasicTraining({
         if (!write(KEYS.basicTrainingAchievements, nextAchievements))
           setStorageUnavailable(true);
         onAchievementsChange(nextAchievements);
+        if (
+          shouldPlayAchievementSound(
+            achievement.medal,
+            previousMedal,
+            true,
+            achievementSoundEnabled,
+            achievementSoundPlayed.current,
+          )
+        ) {
+          achievementSoundPlayed.current = true;
+          playAchievementSound();
+        }
       }
+    } else if (current.mode === "keyboard") {
+      setCompletedAttemptAchievement({ medal: null, perfect: false });
     }
     onSessionComplete({
       id: sessionId.current || crypto.randomUUID(),
@@ -445,17 +582,22 @@ export default function BasicTraining({
 
   const begin = useCallback(() => {
     if (draftRef.current.status === "ready") {
+      achievementSoundPlayed.current = false;
+      setCompletedAttemptAchievement(null);
+      if (draftRef.current.mode === "keyboard") prepareAchievementAudio();
       clock.current.started = Date.now();
       sessionId.current = crypto.randomUUID();
       update({ ...draftRef.current, status: "active" });
     }
-  }, [update]);
+  }, [prepareAchievementAudio, update]);
   const restart = useCallback(
     (focus = true) => {
       clock.current = { elapsed: 0, started: null };
       setElapsed(0);
       sessionId.current = "";
       const current = draftRef.current;
+      achievementSoundPlayed.current = false;
+      setCompletedAttemptAchievement(null);
       update({
         ...current,
         itemIndex: current.mode === "keyboard" ? 0 : current.itemIndex,
@@ -482,6 +624,9 @@ export default function BasicTraining({
   const loadKeyboardLesson = useCallback(
     (lessonIndex: number, startImmediately = false) => {
       if (lessonIndex < 0 || lessonIndex >= keyboardLessons.length) return;
+      achievementSoundPlayed.current = false;
+      setCompletedAttemptAchievement(null);
+      if (startImmediately) prepareAchievementAudio();
       const started = startImmediately ? Date.now() : null;
       clock.current = { elapsed: 0, started };
       setElapsed(0);
@@ -500,7 +645,7 @@ export default function BasicTraining({
       setIncorrectAttempt(null);
       focusPracticeSurface(true);
     },
-    [focusPracticeSurface, update],
+    [focusPracticeSurface, prepareAchievementAudio, update],
   );
 
   const activateFromSpace = useCallback(() => {
@@ -535,6 +680,8 @@ export default function BasicTraining({
     clock.current = { elapsed: 0, started: null };
     setElapsed(0);
     sessionId.current = "";
+    achievementSoundPlayed.current = false;
+    setCompletedAttemptAchievement(null);
     update({
       ...draftRef.current,
       mode,
@@ -607,6 +754,9 @@ export default function BasicTraining({
     )
       return;
     if (current.status === "ready") {
+      achievementSoundPlayed.current = false;
+      setCompletedAttemptAchievement(null);
+      if (current.mode === "keyboard") prepareAchievementAudio();
       clock.current.started = Date.now();
       sessionId.current = crypto.randomUUID();
     }
@@ -662,6 +812,7 @@ export default function BasicTraining({
     limit,
     markKeyboardLessonComplete,
     playIncorrectSound,
+    prepareAchievementAudio,
     soundEnabled,
     target,
     update,
@@ -821,6 +972,18 @@ export default function BasicTraining({
                   ` · ${currentLesson.stageTitle} · ${currentLesson.difficulty.toUpperCase()}`}
               </div>
               <h2>{title}</h2>
+              {draft.mode === "keyboard" && completedAttemptAchievement && (
+                <div className="keyboard-award-row" role="status" aria-live="polite">
+                  <span
+                    className={`keyboard-achievement-badge keyboard-achievement-${completedAttemptAchievement.medal ?? "completed"}`}
+                  >
+                    {completedAttemptAchievement.medal?.toUpperCase() ?? "COMPLETED"}
+                  </span>
+                  {completedAttemptAchievement.perfect && (
+                    <span className="keyboard-perfect-badge">★ PERFECT</span>
+                  )}
+                </div>
+              )}
               {draft.mode === "keyboard" && (
                 <p className="keyboard-exercise-objective">
                   {currentLesson.objective}
@@ -853,18 +1016,20 @@ export default function BasicTraining({
                           (draft.input.length > 0 ||
                             draft.status === "active" ||
                             draft.status === "paused");
-                        const status = achievement?.status === "excellent"
-                          ? "EXCELLENT"
-                          : achievement?.status === "clear"
-                            ? "CLEAR"
-                            : achievement?.status === "completed" || complete
-                              ? "COMPLETED"
-                              : inProgress
-                                ? "In progress"
-                                : "NOT STARTED";
+                        const medal = keyboardAchievementMedal(achievement);
+                        const attempted =
+                          keyboardAchievementWasAttempted(achievement) || complete;
+                        const status = medal?.toUpperCase() ??
+                          (attempted
+                            ? "COMPLETED"
+                            : inProgress
+                              ? "IN PROGRESS"
+                              : "NO MEDAL");
                         return (
                           <option key={exercise.id} value={index}>
-                            {exercise.title} — {status} ({exercise.difficulty})
+                            {exercise.title} — {status}
+                            {keyboardAchievementIsPerfect(achievement) ? " ★ PERFECT" : ""}
+                            {` (${exercise.difficulty})`}
                           </option>
                         );
                       })}
@@ -875,6 +1040,55 @@ export default function BasicTraining({
               </label>
             )}
           </div>
+          {draft.mode === "keyboard" && (
+            <details className="keyboard-achievement-cards">
+              <summary>
+                Exercise medals <span>{keyboardLessons.length} lessons</span>
+              </summary>
+              <div className="keyboard-achievement-card-groups">
+                {keyboardStages.map((stage) => (
+                  <section key={stage.id} aria-label={stage.title}>
+                    <h3>{stage.title}</h3>
+                    <div className="keyboard-achievement-card-grid">
+                      {stage.exercises.map((exercise) => {
+                        const index = keyboardLessons.findIndex(
+                          (lesson) => lesson.id === exercise.id,
+                        );
+                        const achievement = achievements.find(
+                          (item) => item.lessonId === exercise.id,
+                        );
+                        const medal = keyboardAchievementMedal(achievement);
+                        const attempted =
+                          keyboardAchievementWasAttempted(achievement) ||
+                          completedLessonIds.includes(exercise.id);
+                        return (
+                          <button
+                            key={exercise.id}
+                            type="button"
+                            className={`keyboard-achievement-card${index === draft.lessonIndex ? " selected" : ""}`}
+                            aria-current={index === draft.lessonIndex ? "step" : undefined}
+                            onClick={() => chooseKeyboardLesson(index)}
+                          >
+                            <span className="keyboard-achievement-card-title">
+                              {exercise.title}
+                            </span>
+                            <span className="keyboard-achievement-card-awards">
+                              <span className={`keyboard-medal-tag ${medal ?? "none"}`}>
+                                {medal?.toUpperCase() ?? (attempted ? "COMPLETED" : "NO MEDAL")}
+                              </span>
+                              {keyboardAchievementIsPerfect(achievement) && (
+                                <span className="keyboard-perfect-badge">★ PERFECT</span>
+                              )}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            </details>
+          )}
           {draft.mode === "free" && (
             <div className="basic-training-reference">
               <label htmlFor="free-reference">YOUR REFERENCE TEXT</label>
@@ -1036,6 +1250,24 @@ export default function BasicTraining({
                 accuracy · {score.correctCharacters} correct characters ·{" "}
                 {score.errors} errors in {timeLabel(elapsed)}.
               </p>
+              {completedAttemptAchievement && (
+                <div className="keyboard-award-row" aria-label="Attempt awards">
+                  {completedAttemptAchievement.medal ? (
+                    <span
+                      className={`keyboard-achievement-badge keyboard-achievement-${completedAttemptAchievement.medal}`}
+                    >
+                      {completedAttemptAchievement.medal.toUpperCase()} MEDAL
+                    </span>
+                  ) : (
+                    <span className="keyboard-achievement-badge keyboard-achievement-completed">
+                      COMPLETED · NO MEDAL
+                    </span>
+                  )}
+                  {completedAttemptAchievement.perfect && (
+                    <span className="keyboard-perfect-badge">★ PERFECT</span>
+                  )}
+                </div>
+              )}
               {finalKeyboardLessonComplete && (
                 <p className="keyboard-course-complete">
                   You completed all {keyboardLessons.length} keyboard lessons.
@@ -1165,6 +1397,20 @@ export default function BasicTraining({
               >
                 {soundEnabled ? <Volume2 size={14} /> : <VolumeX size={14} />}
                 Sound {soundEnabled ? "On" : "Off"}
+              </button>
+              <button
+                className="secondary basic-training-sound-toggle"
+                type="button"
+                aria-pressed={achievementSoundEnabled}
+                aria-label={`Achievement sound ${achievementSoundEnabled ? "on" : "off"}`}
+                onClick={toggleAchievementSound}
+              >
+                {achievementSoundEnabled ? (
+                  <Volume2 size={14} />
+                ) : (
+                  <VolumeX size={14} />
+                )}
+                Achievement sound {achievementSoundEnabled ? "On" : "Off"}
               </button>
               <button className="secondary" onClick={() => restart()}>
                 <RotateCcw size={14} /> Restart

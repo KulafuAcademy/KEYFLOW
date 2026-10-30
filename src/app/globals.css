@@ -11,6 +11,10 @@
   --error: #9c3434;
   --error-bg: #fce8e7;
   --success: #394f37;
+  --medal-bronze: #8a4f1f;
+  --medal-silver: #59616a;
+  --medal-gold: #8a6500;
+  --perfect: #674a91;
   --sidebar: #fafbf8;
   color-scheme: light;
 }
@@ -26,6 +30,10 @@
   --error: #ffaeaa;
   --error-bg: #492a2a;
   --success: #bdd8b0;
+  --medal-bronze: #e4a66c;
+  --medal-silver: #c3cbd3;
+  --medal-gold: #f1cc65;
+  --perfect: #c5a8f3;
   --sidebar: #171815;
   color-scheme: dark;
 }
@@ -2272,7 +2280,8 @@ select {
 .dashboard-achievement-summary,
 .dashboard-achievement-title,
 .dashboard-achievement-counts,
-.dashboard-achievement-footer {
+.dashboard-achievement-footer,
+.dashboard-achievement-medals {
   display: flex;
   align-items: center;
 }
@@ -2315,12 +2324,85 @@ select {
   margin: 0 7px;
   background: var(--line);
 }
+.dashboard-achievement-medals {
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+  color: var(--muted);
+  font: 700 8px var(--font-mono), monospace;
+  letter-spacing: 0.04em;
+}
+.dashboard-achievement-medals span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.dashboard-achievement-medals strong {
+  font-size: 11px;
+}
+.dashboard-achievement-medals .bronze strong { color: var(--medal-bronze); }
+.dashboard-achievement-medals .silver strong { color: var(--medal-silver); }
+.dashboard-achievement-medals .gold strong { color: var(--medal-gold); }
+.dashboard-achievement-medals .perfect strong { color: var(--perfect); }
 .dashboard-achievement-track {
-  height: 6px;
+  height: 5px;
+  margin-top: 5px;
+}
+.dashboard-achievement-tiers {
+  display: grid;
+  gap: 7px;
   margin-top: 12px;
+}
+.dashboard-achievement-tier {
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+}
+.dashboard-achievement-tier.active {
+  border-color: var(--text);
+  background: var(--soft);
+}
+.dashboard-achievement-tier-heading {
+  display: grid;
+  grid-template-columns: minmax(60px, 1fr) auto minmax(108px, 1fr);
+  align-items: center;
+  gap: 8px;
+  font-size: 9px;
+}
+.dashboard-achievement-tier-heading > strong {
+  font: 700 9px var(--font-mono), monospace;
+  letter-spacing: 0.06em;
+}
+.dashboard-achievement-tier.bronze .dashboard-achievement-tier-heading > strong,
+.dashboard-achievement-tier.bronze .dashboard-achievement-track span { color: var(--medal-bronze); background-color: var(--medal-bronze); }
+.dashboard-achievement-tier.silver .dashboard-achievement-tier-heading > strong,
+.dashboard-achievement-tier.silver .dashboard-achievement-track span { color: var(--medal-silver); background-color: var(--medal-silver); }
+.dashboard-achievement-tier.gold .dashboard-achievement-tier-heading > strong,
+.dashboard-achievement-tier.gold .dashboard-achievement-track span { color: var(--medal-gold); background-color: var(--medal-gold); }
+.dashboard-achievement-tier-status {
+  justify-self: end;
+  color: var(--muted);
+  font: 700 7px var(--font-mono), monospace;
+  letter-spacing: 0.05em;
+}
+.dashboard-achievement-tier.active .dashboard-achievement-tier-status {
+  color: var(--text);
 }
 .dashboard-achievement-track span {
   transition: width 160ms ease-out;
+}
+.dashboard-active-challenge {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 9px;
+}
+.dashboard-active-challenge strong {
+  color: var(--text);
+  font-weight: 700;
 }
 .dashboard-achievement-footer {
   justify-content: space-between;
@@ -2339,6 +2421,8 @@ select {
   .dashboard-achievement-panel { padding: 13px; }
   .dashboard-achievement-summary { align-items: flex-start; flex-direction: column; gap: 10px; }
   .dashboard-achievement-counts { padding-left: 44px; }
+  .dashboard-achievement-tier-heading { grid-template-columns: minmax(50px, 1fr) auto; }
+  .dashboard-achievement-tier-status { grid-column: 1 / -1; justify-self: start; }
 }
 @media (max-width: 380px) {
   .sidebar { padding-left: 10px; padding-right: 10px; }
@@ -2410,6 +2494,125 @@ main:has(.basic-training) .session-code {
   margin-top: 2px;
   font-size: 15px;
   font-weight: 650;
+}
+.keyboard-achievement-badge {
+  display: inline-flex;
+  align-items: center;
+  margin: 5px 0 0;
+  padding: 3px 7px;
+  border: 1px solid var(--success);
+  border-radius: 999px;
+  color: var(--success);
+  font: 700 9px var(--font-mono), monospace;
+  letter-spacing: 0.08em;
+}
+.keyboard-award-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  margin-top: 5px;
+}
+.keyboard-achievement-bronze,
+.keyboard-medal-tag.bronze {
+  border-color: var(--medal-bronze);
+  color: var(--medal-bronze);
+}
+.keyboard-achievement-silver,
+.keyboard-medal-tag.silver {
+  border-color: var(--medal-silver);
+  color: var(--medal-silver);
+}
+.keyboard-achievement-gold,
+.keyboard-medal-tag.gold {
+  border-color: var(--medal-gold);
+  color: var(--medal-gold);
+}
+.keyboard-achievement-completed {
+  border-color: var(--line);
+  color: var(--muted);
+}
+.keyboard-perfect-badge {
+  display: inline-flex;
+  align-items: center;
+  color: var(--perfect);
+  font: 700 9px var(--font-mono), monospace;
+  letter-spacing: 0.06em;
+}
+.keyboard-achievement-cards {
+  position: relative;
+  z-index: 1;
+  margin: 0 0 8px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 10px;
+}
+.keyboard-achievement-cards > summary {
+  display: flex;
+  min-height: 28px;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  font-weight: 650;
+  list-style-position: inside;
+}
+.keyboard-achievement-cards > summary span {
+  font: 9px var(--font-mono), monospace;
+}
+.keyboard-achievement-card-groups {
+  display: grid;
+  max-height: 300px;
+  gap: 10px;
+  overflow: auto;
+  padding: 8px 2px 10px;
+}
+.keyboard-achievement-card-groups h3 {
+  margin-bottom: 5px;
+  color: var(--text);
+  font-size: 9px;
+  font-weight: 700;
+}
+.keyboard-achievement-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
+  gap: 5px;
+}
+.keyboard-achievement-card {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  padding: 7px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--panel);
+  text-align: left;
+}
+.keyboard-achievement-card.selected {
+  border-color: var(--text);
+}
+.keyboard-achievement-card-title {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.keyboard-achievement-card-awards {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+}
+.keyboard-medal-tag {
+  display: inline-flex;
+  padding: 2px 5px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font: 700 7px var(--font-mono), monospace;
+  letter-spacing: 0.06em;
+}
+.keyboard-medal-tag.none {
+  color: var(--muted);
 }
 .keyboard-exercise-objective {
   max-width: 570px;
@@ -2692,6 +2895,9 @@ main:has(.basic-training) .session-code {
   margin-top: 3px;
   color: var(--muted);
   font-size: 10px;
+}
+.basic-training-results > .keyboard-achievement-badge {
+  margin-top: 7px;
 }
 .basic-training-results .keyboard-course-complete {
   color: var(--text);
