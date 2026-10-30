@@ -144,11 +144,17 @@ export default function LearningDashboard({
           aria-valuemin={0}
           aria-valuemax={keyboardProgress.total}
           aria-valuenow={keyboardProgress.cleared}
+          aria-valuetext={`${keyboardProgress.cleared} of ${keyboardProgress.total} exercises cleared (${keyboardProgress.percentage.toFixed(1)}%)`}
         >
-          <span style={{ width: `${keyboardProgress.percentage}%` }} />
+          <span
+            style={{
+              width: `${keyboardProgress.percentage}%`,
+              minWidth: keyboardProgress.cleared > 0 ? 2 : 0,
+            }}
+          />
         </div>
         <div className="dashboard-achievement-footer">
-          <span>{Math.round(keyboardProgress.percentage)}% CLEAR</span>
+          <span>{keyboardProgress.percentage.toFixed(1)}% CLEAR</span>
           <button className="primary" onClick={onContinueTraining}>
             Continue Training <ArrowRight size={14} />
           </button>

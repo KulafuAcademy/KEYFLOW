@@ -79,30 +79,29 @@ export function calculateKeyboardProgress(
   lessonIds: readonly string[],
   achievements: KeyboardAchievement[],
 ): KeyboardProgress {
+  const uniqueLessonIds = [...new Set(lessonIds)];
   const statuses = new Map(
     achievements.map((achievement) => [
       achievement.lessonId,
       achievement.status,
     ]),
   );
-  const clearedIndexes = lessonIds
-    .map((id, index) => ({ index, status: statuses.get(id) }))
-    .filter(({ status }) => status === "clear" || status === "excellent");
-  const excellent = lessonIds.filter(
+  const clearedIds = new Set(
+    uniqueLessonIds.filter((id) => {
+      const status = statuses.get(id);
+      return status === "clear" || status === "excellent";
+    }),
+  );
+  const excellent = uniqueLessonIds.filter(
     (id) => statuses.get(id) === "excellent",
   ).length;
-  const total = lessonIds.length;
+  const total = uniqueLessonIds.length;
+  const nextUnclearedIndex = lessonIds.findIndex((id) => !clearedIds.has(id));
   return {
-    cleared: clearedIndexes.length,
+    cleared: clearedIds.size,
     excellent,
     total,
-    percentage: total ? (clearedIndexes.length / total) * 100 : 0,
-    nextUnclearedIndex:
-      clearedIndexes.length < total
-        ? lessonIds.findIndex((id) => {
-            const status = statuses.get(id);
-            return status !== "clear" && status !== "excellent";
-          })
-        : null,
+    percentage: total ? (clearedIds.size / total) * 100 : 0,
+    nextUnclearedIndex: nextUnclearedIndex >= 0 ? nextUnclearedIndex : null,
   };
 }

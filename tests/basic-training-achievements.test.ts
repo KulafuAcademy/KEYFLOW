@@ -7,6 +7,11 @@ import {
   mergeKeyboardAchievement,
   validKeyboardAchievements,
 } from "../src/lib/basic-training-achievements";
+import {
+  basicTypingScore,
+  emptyLedger,
+  recordGuidedKeystroke,
+} from "../src/lib/basic-training";
 import { keyboardLessons } from "../src/lib/basic-training-content";
 import { KEYS, read, write } from "../src/lib/storage";
 
@@ -74,6 +79,55 @@ test("progress derives its denominator from the bank and excludes completed-but-
   );
 });
 
+test("one qualifying exercise immediately produces 1/55 and 1.8% progress", () => {
+  const lessonIds = keyboardLessons.map((lesson) => lesson.id);
+  let input = "";
+  let ledger = emptyLedger();
+  const target = keyboardLessons[0].text;
+  const first = recordGuidedKeystroke(input, "?", target, ledger);
+  ledger = first.ledger;
+  assert.equal(first.accepted, false);
+  for (const key of target) {
+    const attempt = recordGuidedKeystroke(input, key, target, ledger);
+    input = attempt.input;
+    ledger = attempt.ledger;
+  }
+  const score = basicTypingScore(ledger, 5700);
+  assert.equal(score.wpm, 40);
+  assert.equal(
+    cumulativeErrorAccuracy(ledger.printableKeystrokes, ledger.errors),
+    95,
+  );
+  const achievement = evaluateKeyboardAchievement(
+    score.wpm,
+    cumulativeErrorAccuracy(ledger.printableKeystrokes, ledger.errors),
+  );
+  assert.equal(achievement, "clear");
+
+  const awards = mergeKeyboardAchievement(
+    [],
+    keyboardLessons[0].id,
+    achievement,
+  );
+  const progress = calculateKeyboardProgress(lessonIds, awards);
+  assert.equal(progress.cleared, 1);
+  assert.equal(progress.total, 55);
+  assert.equal(progress.percentage.toFixed(1), "1.8");
+  assert.equal(progress.nextUnclearedIndex, 1);
+
+  const repeated = mergeKeyboardAchievement(
+    awards,
+    keyboardLessons[0].id,
+    "clear",
+  );
+  assert.strictEqual(repeated, awards);
+  assert.equal(calculateKeyboardProgress(lessonIds, repeated).cleared, 1);
+  assert.equal(
+    calculateKeyboardProgress([...lessonIds, lessonIds[0]], repeated).cleared,
+    1,
+  );
+});
+
 test("achievement records validate and persist without changing session history", () => {
   const original = globalThis.localStorage;
   const values = new Map<string, string>();
@@ -90,10 +144,18 @@ test("achievement records validate and persist without changing session history"
     ];
     assert.equal(validKeyboardAchievements(records), true);
     assert.equal(write(KEYS.basicTrainingAchievements, records), true);
-    assert.deepEqual(
-      read(KEYS.basicTrainingAchievements, [], validKeyboardAchievements),
-      records,
+    const restored = read(
+      KEYS.basicTrainingAchievements,
+      [],
+      validKeyboardAchievements,
     );
+    assert.deepEqual(restored, records);
+    const restoredProgress = calculateKeyboardProgress(
+      keyboardLessons.map((lesson) => lesson.id),
+      restored,
+    );
+    assert.equal(restoredProgress.cleared, 1);
+    assert.equal(restoredProgress.percentage.toFixed(1), "1.8");
     assert.deepEqual(values.get(KEYS.history), undefined);
     values.set(
       KEYS.basicTrainingAchievements,
