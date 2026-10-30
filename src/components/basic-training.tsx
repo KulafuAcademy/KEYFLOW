@@ -26,7 +26,9 @@ import {
   characterStates,
   emptyLedger,
   nextLessonIndex,
+  recordGuidedKeystroke,
   recordTypingEdit,
+  restoreBasicTrainingDraft,
   shouldAdvanceItem,
   shouldCompleteTarget,
   validBasicTrainingDraft,
@@ -70,6 +72,21 @@ const emptyDraft: BasicTrainingDraft = {
   ledger: emptyLedger(),
 };
 
+function targetForDraft(draft: BasicTrainingDraft) {
+  if (draft.mode === "keyboard")
+    return keyboardLessons[draft.lessonIndex % keyboardLessons.length].text;
+  if (draft.mode === "words")
+    return wordLists[draft.difficulty][
+      draft.itemIndex % wordLists[draft.difficulty].length
+    ];
+  if (draft.mode === "sentences")
+    return sentenceLists[draft.difficulty][
+      draft.itemIndex % sentenceLists[draft.difficulty].length
+    ];
+  if (draft.mode === "speed") return speedPassage;
+  return draft.practiceText;
+}
+
 export default function BasicTraining({ history, onSessionComplete }: Props) {
   const [draft, setDraft] = useState<BasicTrainingDraft>(emptyDraft);
   const [ready, setReady] = useState(false);
@@ -78,23 +95,20 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
   const clock = useRef<Clock>({ elapsed: 0, started: null });
   const draftRef = useRef(draft);
   const textarea = useRef<HTMLTextAreaElement>(null);
+  const trainingSurface = useRef<HTMLDivElement>(null);
+  const resumeButton = useRef<HTMLButtonElement>(null);
   const sessionId = useRef("");
+  const [incorrectAttempt, setIncorrectAttempt] = useState<{
+    key: string;
+    expected: string;
+  } | null>(null);
 
-  const target = useMemo(() => {
-    if (draft.mode === "keyboard")
-      return keyboardLessons[draft.lessonIndex % keyboardLessons.length].text;
-    if (draft.mode === "words")
-      return wordLists[draft.difficulty][
-        draft.itemIndex % wordLists[draft.difficulty].length
-      ];
-    if (draft.mode === "sentences")
-      return sentenceLists[draft.difficulty][
-        draft.itemIndex % sentenceLists[draft.difficulty].length
-      ];
-    if (draft.mode === "speed") return speedPassage;
-    return draft.practiceText;
-  }, [draft]);
+  const target = useMemo(() => targetForDraft(draft), [draft]);
   const timed = draft.mode === "speed";
+  const guidedMode =
+    draft.mode === "keyboard" ||
+    draft.mode === "words" ||
+    draft.mode === "sentences";
   const limit = timed ? draft.duration * 60_000 : Infinity;
   const finished = draft.status === "completed" || draft.status === "timed-out";
   const lessonComplete =
@@ -120,20 +134,35 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
     if (!write(KEYS.basicTraining, next)) setStorageUnavailable(true);
   }, []);
 
+  const focusPracticeSurface = useCallback(() => {
+    window.setTimeout(() => {
+      const current = draftRef.current;
+      if (current.status === "paused") {
+        resumeButton.current?.focus({ preventScroll: true });
+        return;
+      }
+      if (
+        current.mode === "keyboard" ||
+        current.mode === "words" ||
+        current.mode === "sentences"
+      )
+        trainingSurface.current?.focus({ preventScroll: true });
+      else textarea.current?.focus({ preventScroll: true });
+    }, 0);
+  }, []);
+
   useEffect(() => {
     const saved = read(KEYS.basicTraining, emptyDraft, validBasicTrainingDraft);
-    const restored: BasicTrainingDraft =
-      saved.status === "active" ? { ...saved, status: "paused" } : saved;
+    const restored = restoreBasicTrainingDraft(saved, targetForDraft(saved));
     window.setTimeout(() => {
       clock.current = { elapsed: restored.elapsed, started: null };
       setElapsed(restored.elapsed);
       update(restored);
       setReady(true);
-      textarea.current?.focus();
+      focusPracticeSurface();
     }, 0);
-    // update intentionally stable; restore once on mount.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    // Restore the saved exercise once, then focus its input surface.
+  }, [focusPracticeSurface, update]);
 
   useEffect(() => {
     if (!ready) return;
@@ -226,10 +255,14 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
       status: "ready",
       ledger: emptyLedger(),
     });
-    if (focus) window.setTimeout(() => textarea.current?.focus(), 0);
+    setIncorrectAttempt(null);
+    if (focus) focusPracticeSurface();
   };
   const changeMode = (mode: BasicTrainingMode) => {
-    if (mode === draft.mode) return;
+    if (mode === draft.mode) {
+      focusPracticeSurface();
+      return;
+    }
     clock.current = { elapsed: 0, started: null };
     setElapsed(0);
     sessionId.current = "";
@@ -241,7 +274,8 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
       status: "ready",
       ledger: emptyLedger(),
     });
-    window.setTimeout(() => textarea.current?.focus(), 0);
+    setIncorrectAttempt(null);
+    focusPracticeSurface();
   };
   const edit = (value: string) => {
     const current = draftRef.current;
@@ -283,10 +317,73 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
       };
     }
     update(next);
+    setIncorrectAttempt(null);
     if (shouldCompleteTarget(current.mode, target, value)) {
       // Persist finished lesson/test. Other untimed modes remain open-ended.
       window.setTimeout(() => complete("completed", ms), 0);
     }
+  };
+  const handleGuidedKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const element = event.target;
+    if (
+      element instanceof HTMLElement &&
+      element.closest("button,input,textarea,select,[contenteditable='true']")
+    )
+      return;
+    if (event.metaKey || event.ctrlKey || event.altKey) return;
+
+    const current = draftRef.current;
+    if (
+      current.status === "paused" ||
+      current.status === "completed" ||
+      current.status === "timed-out"
+    )
+      return;
+    if (event.key === "Backspace") {
+      event.preventDefault();
+      return;
+    }
+    if (Array.from(event.key).length !== 1) return;
+
+    event.preventDefault();
+    if (current.status === "ready") {
+      clock.current.started = Date.now();
+      sessionId.current = crypto.randomUUID();
+    }
+    const attempt = recordGuidedKeystroke(
+      current.input,
+      event.key,
+      target,
+      current.ledger,
+    );
+    if (!attempt.accepted) {
+      setIncorrectAttempt({ key: event.key, expected: attempt.expected });
+    } else {
+      setIncorrectAttempt(null);
+    }
+
+    const ms = elapsedMs(clock.current, Date.now(), limit);
+    let next: BasicTrainingDraft = {
+      ...current,
+      input: attempt.input,
+      ledger: attempt.ledger,
+      elapsed: ms,
+      status: current.status === "ready" ? "active" : current.status,
+    };
+    if (
+      attempt.accepted &&
+      shouldAdvanceItem(current.mode, target, attempt.input)
+    ) {
+      next = {
+        ...next,
+        input: "",
+        itemIndex: current.itemIndex + 1,
+        completedItems: current.completedItems + 1,
+      };
+    }
+    update(next);
+    if (shouldCompleteTarget(current.mode, target, attempt.input))
+      window.setTimeout(() => complete("completed", ms), 0);
   };
   const chooseDifficulty = (difficulty: Difficulty) => {
     update({
@@ -302,7 +399,8 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
     clock.current = { elapsed: 0, started: null };
     setElapsed(0);
     sessionId.current = "";
-    textarea.current?.focus();
+    setIncorrectAttempt(null);
+    focusPracticeSurface();
   };
   const chooseDuration = (duration: 1 | 3 | 5) => {
     update({
@@ -316,7 +414,8 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
     clock.current = { elapsed: 0, started: null };
     setElapsed(0);
     sessionId.current = "";
-    textarea.current?.focus();
+    setIncorrectAttempt(null);
+    focusPracticeSurface();
   };
   const changeFreeSource = (freeSource: string) =>
     update({ ...draftRef.current, freeSource });
@@ -334,7 +433,8 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
       status: "ready",
       ledger: emptyLedger(),
     });
-    textarea.current?.focus();
+    setIncorrectAttempt(null);
+    focusPracticeSurface();
   };
 
   const mistakes = useMemo(() => {
@@ -427,6 +527,7 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
             </button>
             {draft.status === "active" ? (
               <button
+                ref={resumeButton}
                 className="secondary"
                 onClick={() => {
                   const ms = elapsedMs(clock.current, Date.now(), limit);
@@ -450,7 +551,7 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
                     started: Date.now(),
                   };
                   update({ ...draftRef.current, status: "active" });
-                  textarea.current?.focus();
+                  focusPracticeSurface();
                 }}
               >
                 <Play size={14} /> Resume
@@ -484,70 +585,97 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
           </div>
         )}
         <div
-          className="mt-4 rounded border border-[var(--line)] bg-[var(--surface)] p-4"
-          aria-label="Text to type"
-        >
-          <div className="mb-2 flex justify-between text-[10px] font-bold tracking-widest text-[var(--muted)]">
-            <span>TARGET TEXT</span>
-            <span>
-              {draft.mode === "words" || draft.mode === "sentences"
-                ? `ITEM ${draft.itemIndex + 1} · ${draft.completedItems} COMPLETE`
-                : `${draft.input.length} / ${target.length}`}
-            </span>
-          </div>
-          <div className="target-text" aria-live="polite">
-            {states.map((item, index) => (
-              <span
-                key={index}
-                className={`target-char ${item.state}`}
-                aria-current={item.state === "current" ? "true" : undefined}
-              >
-                {item.character === " " ? "\u00a0" : item.character}
-              </span>
-            ))}
-          </div>
-        </div>
-        <label htmlFor="basic-typing-input" className="sr-only">
-          Type the target text
-        </label>
-        <textarea
-          ref={textarea}
-          id="basic-typing-input"
-          aria-label="Type the target text"
-          autoCapitalize="off"
-          autoCorrect="off"
-          spellCheck={false}
-          autoComplete="off"
-          value={draft.input}
-          disabled={finished || draft.status === "paused"}
-          onChange={(e) => edit(e.target.value)}
-          onPaste={(e) => {
-            e.preventDefault();
-          }}
-          placeholder={
-            draft.status === "paused"
-              ? "Paused — resume to continue"
-              : "Click here or start typing…"
+          ref={guidedMode ? trainingSurface : undefined}
+          className={guidedMode ? "training-surface mt-4 grid gap-3" : "mt-4"}
+          role={guidedMode ? "group" : undefined}
+          aria-label={
+            guidedMode
+              ? "Typing exercise. Type the highlighted character with your physical keyboard."
+              : "Text to type"
           }
-          className="mt-3 min-h-28 w-full resize-y border border-[var(--line)] bg-[var(--panel)] p-4 font-mono text-base leading-7 outline-none focus:border-[var(--text)] disabled:opacity-70"
-        />
+          tabIndex={guidedMode ? 0 : undefined}
+          onKeyDown={guidedMode ? handleGuidedKeyDown : undefined}
+          onClick={guidedMode ? () => trainingSurface.current?.focus() : undefined}
+          onPaste={
+            guidedMode
+              ? (event) => {
+                  event.preventDefault();
+                }
+              : undefined
+          }
+        >
+          <div className="rounded border border-[var(--line)] bg-[var(--surface)] p-4">
+            <div className="mb-2 flex justify-between text-[10px] font-bold tracking-widest text-[var(--muted)]">
+              <span>TARGET TEXT</span>
+              <span>
+                {draft.mode === "words" || draft.mode === "sentences"
+                  ? `ITEM ${draft.itemIndex + 1} · ${draft.completedItems} COMPLETE · ${draft.input.length}/${target.length}`
+                  : `${draft.input.length} / ${target.length}`}
+              </span>
+            </div>
+            <div className="target-text" aria-live="polite">
+              {states.map((item, index) => (
+                <span
+                  key={index}
+                  className={`target-char ${item.state}${item.state === "current" && incorrectAttempt ? " error-current" : ""}`}
+                  aria-current={item.state === "current" ? "true" : undefined}
+                >
+                  {item.character === " " ? "\u00a0" : item.character}
+                </span>
+              ))}
+            </div>
+          </div>
+          {guidedMode && <KeyboardGuide target={target} input={draft.input} />}
+        </div>
+        {!guidedMode && (
+          <>
+            <label htmlFor="basic-typing-input" className="sr-only">
+              Type the target text
+            </label>
+            <textarea
+              ref={textarea}
+              id="basic-typing-input"
+              aria-label="Type the target text"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+              autoComplete="off"
+              value={draft.input}
+              disabled={finished || draft.status === "paused"}
+              onChange={(e) => edit(e.target.value)}
+              onPaste={(e) => {
+                e.preventDefault();
+              }}
+              placeholder={
+                draft.status === "paused"
+                  ? "Paused — resume to continue"
+                  : "Click here or start typing…"
+              }
+              className="mt-3 min-h-28 w-full resize-y border border-[var(--line)] bg-[var(--panel)] p-4 font-mono text-base leading-7 outline-none focus:border-[var(--text)] disabled:opacity-70"
+            />
+          </>
+        )}
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--muted)]">
-          <span role="status">
-            {draft.status === "ready"
-              ? "Ready · timer starts on your first keystroke"
-              : draft.status === "active"
-                ? "Active · mistakes stay counted even after backspace"
-                : draft.status === "paused"
-                  ? "Paused · your place is saved"
-                  : draft.status === "timed-out"
-                    ? "Time is up · results saved"
-                    : "Complete · results saved"}
+          <span
+            role="status"
+            className={incorrectAttempt ? "training-feedback-error" : ""}
+          >
+            {incorrectAttempt && guidedMode
+              ? `Incorrect “${displayKey(incorrectAttempt.key)}” · type “${displayKey(incorrectAttempt.expected)}” to continue · ${draft.ledger.errors} errors`
+              : draft.status === "ready"
+                ? "Ready · type on your keyboard; timer starts on the first key"
+                : draft.status === "active"
+                  ? guidedMode
+                    ? `Running · type the highlighted key; ${draft.ledger.errors} errors counted`
+                    : "Running · mistakes stay counted in your results"
+                  : draft.status === "paused"
+                    ? "Paused · select Resume to continue typing"
+                    : draft.status === "timed-out"
+                      ? "Time is up · results saved"
+                      : "Complete · results saved"}
           </span>
           <span>Net WPM = (key presses − errors) ÷ 5 ÷ minutes</span>
         </div>
-        {draft.mode === "keyboard" && (
-          <KeyboardGuide target={target} input={draft.input} />
-        )}
         {finished && (
           <div className="mt-4 border border-[var(--line)] p-4" role="status">
             <h3 className="font-semibold">
@@ -584,6 +712,9 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
                     });
                     clock.current = { elapsed: 0, started: null };
                     setElapsed(0);
+                    sessionId.current = "";
+                    setIncorrectAttempt(null);
+                    focusPracticeSurface();
                   }}
                 >
                   <Keyboard size={14} /> Next lesson
@@ -667,6 +798,29 @@ const fingerLabels: Record<FingerId, string> = {
   "right-ring": "Ring",
   "right-pinky": "Pinky",
 };
+const shiftedLegends: Record<string, string> = {
+  "`": "~",
+  "1": "!",
+  "2": "@",
+  "3": "#",
+  "4": "$",
+  "5": "%",
+  "6": "^",
+  "7": "&",
+  "8": "*",
+  "9": "(",
+  "0": ")",
+  "-": "_",
+  "=": "+",
+  "[": "{",
+  "]": "}",
+  "\\": "|",
+  ";": ":",
+  "'": '"',
+  ",": "<",
+  ".": ">",
+  "/": "?",
+};
 
 function KeyboardGuide({ target, input }: { target: string; input: string }) {
   const required = nextRequiredCharacter(target, input);
@@ -676,7 +830,7 @@ function KeyboardGuide({ target, input }: { target: string; input: string }) {
   const shiftHand = activeFinger?.startsWith("left-") ? "right" : "left";
 
   return (
-    <div className="keyboard-guide mt-4 rounded border border-[var(--line)] p-3">
+    <div className="keyboard-guide rounded border border-[var(--line)] p-3">
       <div className="keyboard-guide-heading">
         <Keyboard size={14} aria-hidden="true" />
         <strong>FINGER GUIDE</strong>
@@ -698,7 +852,16 @@ function KeyboardGuide({ target, input }: { target: string; input: string }) {
                     className={`keycap${active ? " next-key" : ""}`}
                     aria-current={active ? "true" : undefined}
                   >
-                    {key === "`" ? "~" : key}
+                    {shiftedLegends[key] ? (
+                      <>
+                        <span className="keycap-shift-legend">
+                          {shiftedLegends[key]}
+                        </span>
+                        <span>{key}</span>
+                      </>
+                    ) : (
+                      key
+                    )}
                   </kbd>
                 );
               })}
@@ -769,4 +932,8 @@ function FingerShape({ finger, active }: { finger: FingerId; active: boolean }) 
       <span className="finger-label">{fingerLabels[finger]}</span>
     </span>
   );
+}
+
+function displayKey(key: string) {
+  return key === " " ? "Space" : key;
 }

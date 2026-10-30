@@ -55,6 +55,79 @@ export const emptyLedger = (): KeystrokeLedger => ({
   mistypedKeys: {},
 });
 
+export function recordGuidedKeystroke(
+  input: string,
+  key: string,
+  target: string,
+  ledger: KeystrokeLedger,
+) {
+  const expected = Array.from(target)[Array.from(input).length] ?? "";
+  if (!expected || Array.from(key).length !== 1)
+    return { input, ledger, expected, accepted: false };
+
+  const accepted = key === expected;
+  const mistypedKeys = accepted ? ledger.mistypedKeys : { ...ledger.mistypedKeys };
+  if (!accepted)
+    mistypedKeys[expected] = (mistypedKeys[expected] ?? 0) + 1;
+
+  return {
+    input: accepted ? input + key : input,
+    expected,
+    accepted,
+    ledger: {
+      printableKeystrokes: ledger.printableKeystrokes + 1,
+      errors: ledger.errors + (accepted ? 0 : 1),
+      retractedCorrect: ledger.retractedCorrect,
+      mistypedKeys,
+    },
+  };
+}
+
+export function restoreBasicTrainingDraft(
+  draft: BasicTrainingDraft,
+  target?: string,
+): BasicTrainingDraft {
+  let restored =
+    draft.status === "active" ? { ...draft, status: "paused" as const } : draft;
+  if (
+    target === undefined ||
+    !["keyboard", "words", "sentences"].includes(restored.mode)
+  )
+    return restored;
+
+  const typed = Array.from(restored.input);
+  const expected = Array.from(target);
+  const firstMismatch = typed.findIndex(
+    (character, index) => character !== expected[index],
+  );
+  if (firstMismatch < 0) return restored;
+
+  const removedCorrectCharacters = typed
+    .slice(firstMismatch)
+    .reduce(
+      (count, character, offset) =>
+        count + (character === expected[firstMismatch + offset] ? 1 : 0),
+      0,
+    );
+  const availableRetractions = Math.max(
+    0,
+    restored.ledger.printableKeystrokes - restored.ledger.retractedCorrect,
+  );
+  const retractedCorrect = Math.min(
+    availableRetractions,
+    removedCorrectCharacters,
+  );
+  restored = {
+    ...restored,
+    input: typed.slice(0, firstMismatch).join(""),
+    ledger: {
+      ...restored.ledger,
+      retractedCorrect: restored.ledger.retractedCorrect + retractedCorrect,
+    },
+  };
+  return restored;
+}
+
 export function recordTypingEdit(
   previous: string,
   next: string,
