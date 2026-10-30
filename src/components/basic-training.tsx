@@ -29,11 +29,12 @@ import {
   basicTypingScore,
   characterStates,
   emptyLedger,
-  isSpacebarShortcut,
+  normalizeTrainingKey,
   nextLessonIndex,
   recordGuidedKeystroke,
   recordTypingEdit,
   restoreBasicTrainingDraft,
+  resolveBasicTrainingSpaceEvent,
   shouldAdvanceItem,
   shouldCompleteTarget,
   isUnmodifiedPrintableKey,
@@ -414,18 +415,7 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
       window.setTimeout(() => complete("completed", ms), 0);
     }
   };
-  const handleGuidedKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (event.defaultPrevented) return;
-    const element = event.target;
-    if (
-      element instanceof HTMLElement &&
-      element.closest("button,input,textarea,select,[contenteditable='true']")
-    )
-      return;
-    const typedKey =
-      event.key === "Spacebar" || event.key === "Space" ? " " : event.key;
-    if (!isUnmodifiedPrintableKey(typedKey, event)) return;
-
+  const processGuidedKey = (typedKey: string) => {
     const current = draftRef.current;
     if (
       current.status === "paused" ||
@@ -433,11 +423,6 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
       current.status === "timed-out"
     )
       return;
-    if (event.key === "Backspace") {
-      event.preventDefault();
-      return;
-    }
-    event.preventDefault();
     if (current.status === "ready") {
       clock.current.started = Date.now();
       sessionId.current = crypto.randomUUID();
@@ -486,42 +471,59 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
       window.setTimeout(() => complete("completed", ms), 0);
   };
 
+  const handleGuidedKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.defaultPrevented) return;
+    const element = event.target;
+    if (
+      element instanceof HTMLElement &&
+      element.closest("button,input,textarea,select,[contenteditable='true']")
+    )
+      return;
+    const typedKey = normalizeTrainingKey(event);
+    if (!isUnmodifiedPrintableKey(typedKey, event)) return;
+    event.preventDefault();
+    processGuidedKey(typedKey);
+  };
+
   useEffect(() => {
     const handleSpacebar = (event: KeyboardEvent) => {
-      if (!isSpacebarShortcut(event)) return;
-
-      const element = event.target instanceof HTMLElement ? event.target : null;
-      const typingInput = element?.id === "basic-typing-input";
-      const current = draftRef.current;
-      const action = basicTrainingSpaceAction(current.status);
-      const focusedControl = element?.closest(
-        "button,input,textarea,select,[contenteditable='true']",
+      const eventTarget = event.target instanceof HTMLElement ? event.target : null;
+      const activeElement = document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+      const isTrainingInput = (element: HTMLElement | null) =>
+        element?.id === "basic-typing-input";
+      const isControl = (element: HTMLElement | null) =>
+        Boolean(element?.closest("button,input,textarea,select,[contenteditable='true']"));
+      const inGuidedSurface = (element: HTMLElement | null) =>
+        Boolean(element && trainingSurface.current?.contains(element));
+      const controls = [eventTarget, activeElement];
+      // iPadOS Safari can dispatch keydown at body while the practice surface
+      // remains the active element, so examine both target and activeElement.
+      const action = resolveBasicTrainingSpaceEvent(
+        draftRef.current.status,
+        event,
+        {
+          guidedMode,
+          trainingSurfaceFocused: controls.some(inGuidedSurface),
+          otherControlFocused: controls.some(
+            (element) => isControl(element) && !isTrainingInput(element),
+          ),
+        },
       );
-      const inGuidedSurface = Boolean(
-        element && trainingSurface.current?.contains(element),
-      );
-      const isTrainingControl =
-        typingInput || (inGuidedSurface && !focusedControl);
-
-      // Do not steal Space from other editors or controls (for example, the
-      // free-text reference field, mode selector, or sound toggle).
-      if (focusedControl && !isTrainingControl) return;
-      if (event.repeat && action !== "type") return;
-
-      if (action === "type") {
-        // Running Space is never a session shortcut. If focus was lost, leave
-        // the key alone; the visible Focus Typing button restores input focus.
-        return;
-      }
-
+      if (action === "ignore") return;
       event.preventDefault();
       event.stopPropagation();
+      if (action === "type") {
+        processGuidedKey(" ");
+        return;
+      }
       activateFromSpace();
     };
 
     window.addEventListener("keydown", handleSpacebar, true);
     return () => window.removeEventListener("keydown", handleSpacebar, true);
-  }, [activateFromSpace, focusPracticeSurface]);
+  });
 
   const chooseDifficulty = (difficulty: Difficulty) => {
     update({

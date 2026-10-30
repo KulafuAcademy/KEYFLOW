@@ -16,6 +16,8 @@ import {
   emptyLedger,
   isUnmodifiedPrintableKey,
   isSpacebarShortcut,
+  normalizeTrainingKey,
+  resolveBasicTrainingSpaceEvent,
   nextLessonIndex,
   recordGuidedKeystroke,
   recordTypingEdit,
@@ -213,6 +215,88 @@ test("Space detection accepts Safari key values and physical Space code only wit
     isSpacebarShortcut({ key: " ", code: "Space", isComposing: true }),
     false,
   );
+});
+
+test("physical Space key values normalize to a literal typing character", () => {
+  assert.equal(normalizeTrainingKey({ key: " ", code: "Space" }), " ");
+  assert.equal(normalizeTrainingKey({ key: "Spacebar", code: "" }), " ");
+  assert.equal(
+    normalizeTrainingKey({ key: "Unidentified", code: "Space" }),
+    " ",
+  );
+  assert.equal(normalizeTrainingKey({ key: "", code: "Space" }), " ");
+  assert.equal(normalizeTrainingKey({ key: "a", code: "KeyA" }), "a");
+});
+
+test("physical Space routes by training state and respects focus ownership", () => {
+  const event = { key: "Unidentified", code: "Space" };
+  const surfaceFocused = {
+    guidedMode: true,
+    trainingSurfaceFocused: true,
+    otherControlFocused: false,
+  };
+  assert.equal(
+    resolveBasicTrainingSpaceEvent("ready", event, surfaceFocused),
+    "start",
+  );
+  assert.equal(
+    resolveBasicTrainingSpaceEvent("active", event, surfaceFocused),
+    "type",
+  );
+  assert.equal(
+    resolveBasicTrainingSpaceEvent("paused", event, surfaceFocused),
+    "resume",
+  );
+  assert.equal(
+    resolveBasicTrainingSpaceEvent("completed", event, surfaceFocused),
+    "restart",
+  );
+  assert.equal(
+    resolveBasicTrainingSpaceEvent("timed-out", event, surfaceFocused),
+    "restart",
+  );
+  assert.equal(
+    resolveBasicTrainingSpaceEvent("active", event, {
+      ...surfaceFocused,
+      trainingSurfaceFocused: false,
+    }),
+    "ignore",
+  );
+  assert.equal(
+    resolveBasicTrainingSpaceEvent("ready", event, {
+      ...surfaceFocused,
+      otherControlFocused: true,
+    }),
+    "ignore",
+  );
+  assert.equal(
+    resolveBasicTrainingSpaceEvent("active", event, {
+      ...surfaceFocused,
+      guidedMode: false,
+    }),
+    "ignore",
+  );
+  assert.equal(
+    resolveBasicTrainingSpaceEvent(
+      "active",
+      { ...event, ctrlKey: true },
+      surfaceFocused,
+    ),
+    "ignore",
+  );
+});
+
+test("Running Space is ledgered as a normal character and cannot advance on error", () => {
+  const key = normalizeTrainingKey({ key: "Unidentified", code: "Space" });
+  const wrong = recordGuidedKeystroke("", key, "a", emptyLedger());
+  assert.equal(wrong.accepted, false);
+  assert.equal(wrong.input, "");
+  assert.equal(wrong.ledger.errors, 1);
+
+  const expected = recordGuidedKeystroke("", key, " ", emptyLedger());
+  assert.equal(expected.accepted, true);
+  assert.equal(expected.input, " ");
+  assert.equal(expected.ledger.errors, 0);
 });
 
 test("guided word and sentence items advance only after their final correct character", () => {

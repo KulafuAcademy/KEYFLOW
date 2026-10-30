@@ -99,16 +99,64 @@ export function isSpacebarShortcut(event: {
   isComposing?: boolean;
 }) {
   return (
-    (event.key === " " ||
-      event.key === "Spacebar" ||
-      event.key === "Space" ||
-      event.code === "Space") &&
+    isPhysicalSpaceKey(event) &&
     !event.shiftKey &&
     !event.metaKey &&
     !event.ctrlKey &&
     !event.altKey &&
     !event.isComposing
   );
+}
+
+/** Recognize the physical Space key even when Safari reports an unusable key value. */
+export function isPhysicalSpaceKey(event: { key: string; code: string }) {
+  return (
+    event.key === " " ||
+    event.key === "Spacebar" ||
+    event.key === "Space" ||
+    event.code === "Space"
+  );
+}
+
+/** Normalize Safari/iPadOS Space events to the literal character used by the typing ledger. */
+export function normalizeTrainingKey(event: { key: string; code: string }) {
+  return isPhysicalSpaceKey(event) ? " " : event.key;
+}
+
+export function resolveBasicTrainingSpaceEvent(
+  status: BasicTrainingDraft["status"],
+  event: {
+    key: string;
+    code: string;
+    shiftKey?: boolean;
+    metaKey?: boolean;
+    ctrlKey?: boolean;
+    altKey?: boolean;
+    isComposing?: boolean;
+    repeat?: boolean;
+  },
+  focus: {
+    guidedMode: boolean;
+    trainingSurfaceFocused: boolean;
+    otherControlFocused: boolean;
+  },
+): "start" | "type" | "resume" | "restart" | "ignore" {
+  if (
+    !isPhysicalSpaceKey(event) ||
+    event.metaKey ||
+    event.ctrlKey ||
+    event.altKey ||
+    event.isComposing ||
+    focus.otherControlFocused
+  )
+    return "ignore";
+
+  const action = basicTrainingSpaceAction(status);
+  if (action === "type") {
+    return focus.guidedMode && focus.trainingSurfaceFocused ? "type" : "ignore";
+  }
+  if (event.shiftKey || event.repeat) return "ignore";
+  return action;
 }
 
 export function basicTrainingSpaceInstruction(
