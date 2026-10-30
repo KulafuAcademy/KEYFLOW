@@ -10,7 +10,6 @@ import {
   Activity,
   ArrowDownToLine,
   ArrowRight,
-  BarChart3,
   BookOpen,
   Check,
   ChevronRight,
@@ -41,6 +40,7 @@ import {
 } from "@/lib/task1-visuals";
 import AmplifyPicker from "./amplify-picker";
 import BasicTraining from "./basic-training";
+import LearningDashboard from "./learning-dashboard";
 import RemoteMaterials from "./remote-materials";
 import {
   referencePrompt,
@@ -91,7 +91,8 @@ const descriptions: Record<Mode, string> = {
   drill: "Small repetitions. Lasting precision.",
   copy: "Find your rhythm in academic English.",
   writing: "Your ideas. Exam conditions.",
-  keyboard: "Build comfortable, accurate finger movement from the home row upward.",
+  keyboard:
+    "Build comfortable, accurate finger movement from the home row upward.",
   words: "Practise useful English vocabulary at a pace that suits you.",
   sentences: "Build rhythm and accuracy with complete natural sentences.",
   speed: "A focused timed test with transparent speed and accuracy measures.",
@@ -154,8 +155,9 @@ export default function Studio() {
   const router = useRouter();
   const [loaded, setLoaded] = useState(false),
     [publicAccess, setPublicAccess] = useState(false),
-    [view, setView] = useState<View>("drill"),
+    [view, setView] = useState<View>("progress"),
     [theme, setTheme] = useState("light");
+  const [goalWpm, setGoalWpm] = useState(40);
   const [history, setHistory] = useState<Session[]>([]),
     [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [index, setIndex] = useState(0),
@@ -225,55 +227,77 @@ export default function Studio() {
     if (!ok) setStorageError(true);
     return ok;
   }, []);
-  const recordBasicSession = useCallback((session: Session) => {
-    setHistory((old) => {
-      const next = appendSession(old, session);
-      persist(KEYS.history, next);
-      return next;
-    });
-  }, [persist]);
+  const recordBasicSession = useCallback(
+    (session: Session) => {
+      setHistory((old) => {
+        const next = appendSession(old, session);
+        persist(KEYS.history, next);
+        return next;
+      });
+    },
+    [persist],
+  );
   useEffect(() => {
     let cancelled = false;
-    void fetch("/api/staff/me", { cache: "no-store" }).then((response) => {
-      if (!response.ok) throw new Error("Staff session expired");
-      return response.json() as Promise<{ id: string; publicAccess?: boolean }>;
-    }).then(({ id, publicAccess: isPublic }) => {
-      if (cancelled) return;
-      setPublicAccess(isPublic === true);
-      setStaffStorageNamespace(id);
-      const preferences = read<{ theme: string; duration: number }>(
-      KEYS.preferences,
-      {
-        theme: window.matchMedia("(prefers-color-scheme: dark)").matches
-          ? "dark"
-          : "light",
-        duration: 1,
-      },
-      (x) =>
-        !!x &&
-        typeof x === "object" &&
-        "theme" in x &&
-        ["light", "dark"].includes(String(x.theme)) &&
-        "duration" in x &&
-        [1, 3, 5].includes(Number(x.duration)),
-      );
-      startTransition(() => {
-        setTheme(preferences.theme);
-        setDuration(preferences.duration);
-        setHistory(read(KEYS.history, [], validHistory));
-        setDrafts(read(KEYS.drafts, {}, validDrafts));
-        setLoaded(true);
+    void fetch("/api/staff/me", { cache: "no-store" })
+      .then((response) => {
+        if (!response.ok) throw new Error("Staff session expired");
+        return response.json() as Promise<{
+          id: string;
+          publicAccess?: boolean;
+        }>;
+      })
+      .then(({ id, publicAccess: isPublic }) => {
+        if (cancelled) return;
+        setPublicAccess(isPublic === true);
+        setStaffStorageNamespace(id);
+        const preferences = read<{
+          theme: string;
+          duration: number;
+          goalWpm?: number;
+        }>(
+          KEYS.preferences,
+          {
+            theme: window.matchMedia("(prefers-color-scheme: dark)").matches
+              ? "dark"
+              : "light",
+            duration: 1,
+          },
+          (x) =>
+            !!x &&
+            typeof x === "object" &&
+            "theme" in x &&
+            ["light", "dark"].includes(String(x.theme)) &&
+            "duration" in x &&
+            [1, 3, 5].includes(Number(x.duration)) &&
+            (!("goalWpm" in x) ||
+              (Number.isFinite(x.goalWpm) &&
+                Number(x.goalWpm) >= 10 &&
+                Number(x.goalWpm) <= 200)),
+        );
+        startTransition(() => {
+          setTheme(preferences.theme);
+          setDuration(preferences.duration);
+          setGoalWpm(preferences.goalWpm ?? 40);
+          setHistory(read(KEYS.history, [], validHistory));
+          setDrafts(read(KEYS.drafts, {}, validDrafts));
+          setLoaded(true);
+        });
+      })
+      .catch(() => {
+        if (!cancelled) router.replace("/staff/login");
       });
-    }).catch(() => { if (!cancelled) router.replace("/staff/login"); });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     if (loaded)
       startTransition(() => {
-        persist(KEYS.preferences, { theme, duration });
+        persist(KEYS.preferences, { theme, duration, goalWpm });
       });
-  }, [theme, duration, loaded, persist]);
+  }, [theme, duration, goalWpm, loaded, persist]);
   useEffect(() => {
     if (loaded && view !== "progress") editor.current?.focus();
   }, [loaded, view, index, promptId]);
@@ -566,12 +590,6 @@ export default function Studio() {
       );
     }
   }
-  const typingHistory = history.filter((s) => s.mode !== "writing");
-  const best = Math.max(0, ...typingHistory.map((s) => s.wpm || 0));
-  const avg = typingHistory.length
-    ? typingHistory.reduce((a, s) => a + (s.accuracy || 0), 0) /
-      typingHistory.length
-    : 0;
   if (!loaded)
     return (
       <div className="loading">
@@ -589,7 +607,7 @@ export default function Studio() {
           className="brand"
           onClick={(e) => {
             e.preventDefault();
-            navigate("drill");
+            navigate("progress");
           }}
           aria-label="KEYFLOW home"
         >
@@ -607,19 +625,24 @@ export default function Studio() {
         <nav aria-label="Main navigation">
           {(
             [
-              { id: "drill", name: "Typing drill", icon: Keyboard, n: "01" },
+              {
+                id: "progress",
+                name: "Dashboard",
+                icon: LayoutDashboard,
+                n: "01",
+              },
               { id: "basic", name: "Basic Training", icon: Target, n: "02" },
-              { id: "copy", name: "Copy practice", icon: BookOpen, n: "03" },
               {
                 id: "writing",
                 name: "Writing simulation",
                 icon: Type,
-                n: "04",
+                n: "03",
               },
+              { id: "drill", name: "Typing drill", icon: Keyboard, n: "04" },
               {
-                id: "progress",
-                name: "Your progress",
-                icon: BarChart3,
+                id: "copy",
+                name: "Copy practice",
+                icon: BookOpen,
                 n: "05",
               },
             ] as const
@@ -642,9 +665,7 @@ export default function Studio() {
             <ShieldCheck size={19} />
             <div>
               <strong>Your practice. Your device.</strong>
-              <p>
-                Progress saves privately in this browser.
-              </p>
+              <p>Progress saves privately in this browser.</p>
             </div>
           </div>
           <div className="sidebar-footer">
@@ -659,7 +680,15 @@ export default function Studio() {
             >
               {theme === "light" ? <Moon size={17} /> : <Sun size={17} />}
             </IconButton>
-            {!publicAccess && <a className="staff-signout" href="/staff/logout" aria-label="Sign out">SIGN OUT</a>}
+            {!publicAccess && (
+              <a
+                className="staff-signout"
+                href="/staff/logout"
+                aria-label="Sign out"
+              >
+                SIGN OUT
+              </a>
+            )}
           </div>
         </div>
       </aside>
@@ -669,7 +698,11 @@ export default function Studio() {
             <span className="crumb">Workspace</span>
             <ChevronRight size={13} />
             <strong>
-              {view === "progress" ? "Your progress" : view === "basic" ? "Basic Training" : labels[mode]}
+              {view === "progress"
+                ? "Learning dashboard"
+                : view === "basic"
+                  ? "Basic Training"
+                  : labels[mode]}
             </strong>
           </div>
           <span className="topbar-right">
@@ -682,14 +715,26 @@ export default function Studio() {
             <div>
               <div className="eyebrow">
                 <span className="square" />{" "}
-                {view === "progress" ? "YOUR PERSONAL RECORD" : view === "basic" ? "FOUNDATIONS / BUILD YOUR FLOW" : "PURPOSEFUL PRACTICE / REAL PROGRESS"}
+                {view === "progress"
+                  ? "YOUR LEARNING / YOUR RECORD"
+                  : view === "basic"
+                    ? "FOUNDATIONS / BUILD YOUR FLOW"
+                    : "PURPOSEFUL PRACTICE / REAL PROGRESS"}
               </div>
               <h1>
-                {view === "progress" ? "Every session counts" : view === "basic" ? "Basic Training" : labels[mode]}
+                {view === "progress"
+                  ? "Learning dashboard"
+                  : view === "basic"
+                    ? "Basic Training"
+                    : labels[mode]}
                 <span className="heading-dot">.</span>
               </h1>
               <p>
-                {view === "progress" ? "A little more fluent. A little more confident." : view === "basic" ? "Start with the keyboard, then build toward confident English typing." : descriptions[mode]}
+                {view === "progress"
+                  ? "Your typing speed, consistency, and completed practice at a glance."
+                  : view === "basic"
+                    ? "Start with the keyboard, then build toward confident English typing."
+                    : descriptions[mode]}
               </p>
             </div>
             <div className="session-code">
@@ -698,213 +743,34 @@ export default function Studio() {
                 FOCUS MODE
                 <br />
                 <strong>
-                  {remoteTrack
-                    ? `IELTS / ${trackLabel(remoteTrack).toUpperCase()}`
-                    : "IELTS / ACADEMIC"}
+                  {view === "progress"
+                    ? "LOCAL / THIS DEVICE"
+                    : remoteTrack
+                      ? `IELTS / ${trackLabel(remoteTrack).toUpperCase()}`
+                      : "IELTS / ACADEMIC"}
                 </strong>
               </span>
             </div>
           </div>
           {storageError && (
             <div role="alert" className="storage-alert">
-              This browser cannot save local data. Keep this tab open and export
-              your writing before leaving.
+              This browser cannot save local data. Your progress, preferences,
+              and drafts may not persist after you close this tab.
             </div>
           )}
           {view === "basic" ? (
-            <BasicTraining history={history} onSessionComplete={recordBasicSession} />
+            <BasicTraining
+              history={history}
+              onSessionComplete={recordBasicSession}
+            />
           ) : view === "progress" ? (
-            <>
-              <div className="metrics-grid">
-                <Metric
-                  label="PERSONAL BEST"
-                  value={best.toFixed(1)}
-                  unit="WPM"
-                  icon={<Zap size={14} />}
-                />
-                <Metric
-                  label="AVG. ACCURACY"
-                  value={avg.toFixed(1)}
-                  unit="%"
-                  icon={<Target size={14} />}
-                />
-                <Metric
-                  label="SESSIONS"
-                  value={String(history.length)}
-                  icon={<LayoutDashboard size={14} />}
-                />
-                <Metric
-                  label="TIME PRACTISED"
-                  value={String(
-                    Math.round(
-                      history.reduce((a, s) => a + s.elapsed, 0) / 60000,
-                    ),
-                  )}
-                  unit="MIN"
-                  icon={<Clock3 size={14} />}
-                />
-              </div>
-              <div className="panel trend-panel">
-                <div className="panel-title">
-                  <h2>Finding your flow</h2>
-                  <span className="mono">LAST 12 TYPING SESSIONS</span>
-                </div>
-                {typingHistory.length ? (
-                  <>
-                    <div className="charts">
-                      {(["wpm", "accuracy"] as const).map((key) => {
-                        const data = typingHistory.slice(0, 12).reverse();
-                        const max =
-                          key === "accuracy"
-                            ? 100
-                            : Math.max(20, ...data.map((s) => s.wpm || 0));
-                        return (
-                          <div key={key}>
-                            <h3>
-                              {key === "wpm"
-                                ? "Typing speed · WPM"
-                                : "Character accuracy · %"}
-                            </h3>
-                            <div
-                              className="chart"
-                              role="img"
-                              aria-label={data
-                                .map(
-                                  (s, i) =>
-                                    `Session ${i + 1}: ${(s[key] || 0).toFixed(1)} ${key}`,
-                                )
-                                .join("; ")}
-                            >
-                              <svg
-                                viewBox="0 0 500 120"
-                                preserveAspectRatio="none"
-                              >
-                                <path
-                                  d="M 10 25 H 490 M 10 65 H 490 M 10 105 H 490"
-                                  className="chart-grid"
-                                />
-                                <polyline
-                                  points={data
-                                    .map(
-                                      (s, i) =>
-                                        `${10 + (data.length === 1 ? 240 : (i * 480) / (data.length - 1))},${105 - ((s[key] || 0) / max) * 90}`,
-                                    )
-                                    .join(" ")}
-                                  fill="none"
-                                  className="chart-line"
-                                />
-                                {data.map((s, i) => (
-                                  <circle
-                                    key={s.id}
-                                    cx={
-                                      10 +
-                                      (data.length === 1
-                                        ? 240
-                                        : (i * 480) / (data.length - 1))
-                                    }
-                                    cy={105 - ((s[key] || 0) / max) * 90}
-                                    r="3"
-                                  />
-                                ))}
-                              </svg>
-                            </div>
-                            <div className="chart-caption">
-                              <span>EARLIER</span>
-                              <span>MOST RECENT</span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </>
-                ) : (
-                  <div className="empty-state">
-                    <BarChart3 size={28} />
-                    <h3>Your next chapter starts with a keystroke.</h3>
-                    <p>
-                      Complete a drill or copy practice to see speed and
-                      accuracy trends.
-                    </p>
-                    <button
-                      className="primary"
-                      onClick={() => navigate("drill")}
-                    >
-                      Start a drill <ArrowRight size={15} />
-                    </button>
-                  </div>
-                )}
-              </div>
-              <section className="panel history-panel">
-                <div className="panel-title">
-                  <h2>
-                    Session history{" "}
-                    <span className="count">{history.length}</span>
-                  </h2>
-                  <button
-                    className="text-button"
-                    disabled={!history.length}
-                    onClick={() => setConfirm("history")}
-                  >
-                    <Trash2 size={14} /> Reset history
-                  </button>
-                </div>
-                <div className="table-scroll">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>EXERCISE</th>
-                        <th>MODE</th>
-                        <th>WPM / WORDS</th>
-                        <th>ACCURACY</th>
-                        <th>TIME</th>
-                        <th>DATE</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {history.map((s) => (
-                        <tr key={s.id}>
-                          <td>
-                            <strong>{s.title}</strong>
-                            <small>
-                              {s.status === "timed-out"
-                                ? "Time is up"
-                                : "Completed"}
-                            </small>
-                          </td>
-                          <td>{labels[s.mode]}</td>
-                          <td>
-                            {s.mode === "writing"
-                              ? `${s.words} words`
-                              : (s.wpm || 0).toFixed(1)}
-                          </td>
-                          <td>
-                            {s.mode === "writing"
-                              ? "—"
-                              : `${(s.accuracy || 0).toFixed(1)}%`}
-                          </td>
-                          <td className="mono">{timeLabel(s.elapsed)}</td>
-                          <td>
-                            {new Date(s.date).toLocaleDateString(undefined, {
-                              month: "short",
-                              day: "numeric",
-                            })}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {!history.length && (
-                    <p className="no-history">
-                      No sessions yet. Your completed practice will appear here.
-                    </p>
-                  )}
-                </div>
-                <p className="panel-footnote">
-                  The latest 200 sessions are stored on this device. Writing
-                  sessions have no accuracy score.
-                </p>
-              </section>
-            </>
+            <LearningDashboard
+              history={history}
+              goalWpm={goalWpm}
+              onGoalChange={setGoalWpm}
+              onNavigate={navigate}
+              onResetHistory={() => setConfirm("history")}
+            />
           ) : (
             <>
               <div className="mode-tabs" aria-label="Practice modes">

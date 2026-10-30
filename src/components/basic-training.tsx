@@ -89,6 +89,8 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
   const timed = draft.mode === "speed";
   const limit = timed ? draft.duration * 60_000 : Infinity;
   const finished = draft.status === "completed" || draft.status === "timed-out";
+  const lessonComplete =
+    draft.mode === "keyboard" && draft.input.length >= target.length;
   const score = basicTypingScore(draft.ledger, elapsed);
   const states = characterStates(target, draft.input);
   const currentLesson =
@@ -543,7 +545,7 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
             <h3 className="font-semibold">
               {draft.status === "timed-out"
                 ? "Speed test complete"
-                : draft.mode === "keyboard"
+                : lessonComplete
                   ? "Lesson complete"
                   : "Session complete"}
             </h3>
@@ -556,7 +558,7 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
               <button className="secondary" onClick={() => restart()}>
                 Retry
               </button>
-              {draft.mode === "keyboard" && (
+              {lessonComplete && (
                 <button
                   className="primary"
                   onClick={() => {
