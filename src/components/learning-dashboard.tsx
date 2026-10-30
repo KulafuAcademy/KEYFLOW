@@ -3,6 +3,7 @@
 import {
   Activity,
   ArrowRight,
+  Award,
   CalendarDays,
   Clock3,
   Flame,
@@ -14,6 +15,11 @@ import {
   calculateDashboardStats,
   type DailyPerformance,
 } from "@/lib/dashboard-stats";
+import {
+  calculateKeyboardProgress,
+  type KeyboardAchievement,
+} from "@/lib/basic-training-achievements";
+import { keyboardLessons } from "@/lib/basic-training-content";
 import { timeLabel } from "@/lib/metrics";
 import type { Mode, Session } from "@/lib/storage";
 
@@ -23,6 +29,8 @@ type Props = {
   onGoalChange: (value: number) => void;
   onNavigate: (view: "basic" | "writing" | Mode) => void;
   onResetHistory: () => void;
+  keyboardAchievements: KeyboardAchievement[];
+  onContinueTraining: () => void;
 };
 
 const modeLabels: Record<Mode, string> = {
@@ -42,8 +50,14 @@ export default function LearningDashboard({
   onGoalChange,
   onNavigate,
   onResetHistory,
+  keyboardAchievements,
+  onContinueTraining,
 }: Props) {
   const stats = calculateDashboardStats(history, goalWpm);
+  const keyboardProgress = calculateKeyboardProgress(
+    keyboardLessons.map((lesson) => lesson.id),
+    keyboardAchievements,
+  );
   const hasPractice = stats.totalSessions > 0;
   const metrics = [
     {
@@ -98,6 +112,48 @@ export default function LearningDashboard({
           </button>
         </div>
       </div>
+
+      <section
+        className="panel dashboard-achievement-panel"
+        aria-labelledby="basic-progress-title"
+      >
+        <div className="dashboard-achievement-summary">
+          <div className="dashboard-achievement-title">
+            <span className="dashboard-achievement-icon" aria-hidden="true">
+              <Award size={17} />
+            </span>
+            <div>
+              <div className="metric-label">BASIC TRAINING</div>
+              <h2 id="basic-progress-title">Keyboard achievements</h2>
+            </div>
+          </div>
+          <div className="dashboard-achievement-counts">
+            <strong>
+              {keyboardProgress.cleared} / {keyboardProgress.total}
+            </strong>
+            <span>cleared</span>
+            <i aria-hidden="true" />
+            <strong>{keyboardProgress.excellent}</strong>
+            <span>excellent</span>
+          </div>
+        </div>
+        <div
+          className="goal-track dashboard-achievement-track"
+          role="progressbar"
+          aria-label="Basic Training exercises cleared"
+          aria-valuemin={0}
+          aria-valuemax={keyboardProgress.total}
+          aria-valuenow={keyboardProgress.cleared}
+        >
+          <span style={{ width: `${keyboardProgress.percentage}%` }} />
+        </div>
+        <div className="dashboard-achievement-footer">
+          <span>{Math.round(keyboardProgress.percentage)}% CLEAR</span>
+          <button className="primary" onClick={onContinueTraining}>
+            Continue Training <ArrowRight size={14} />
+          </button>
+        </div>
+      </section>
 
       {!hasPractice && (
         <section

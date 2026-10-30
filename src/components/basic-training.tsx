@@ -22,6 +22,13 @@ import {
 } from "lucide-react";
 import { elapsedMs, timeLabel, type Clock } from "@/lib/metrics";
 import {
+  cumulativeErrorAccuracy,
+  evaluateKeyboardAchievement,
+  mergeKeyboardAchievement,
+  validKeyboardAchievements,
+  type KeyboardAchievement,
+} from "@/lib/basic-training-achievements";
+import {
   characterNeedsShift,
   fingerForCharacter,
   fingerOrder,
@@ -68,6 +75,10 @@ import {
 type Props = {
   history: Session[];
   onSessionComplete: (session: Session) => void;
+  achievements: KeyboardAchievement[];
+  onAchievementsChange: (achievements: KeyboardAchievement[]) => void;
+  initialLessonIndex: number | null;
+  onInitialLessonLoaded: () => void;
 };
 const modes: { id: BasicTrainingMode; label: string }[] = [
   { id: "keyboard", label: "Keyboard" },
@@ -107,7 +118,14 @@ function targetForDraft(draft: BasicTrainingDraft) {
   return draft.practiceText;
 }
 
-export default function BasicTraining({ history, onSessionComplete }: Props) {
+export default function BasicTraining({
+  history,
+  onSessionComplete,
+  achievements,
+  onAchievementsChange,
+  initialLessonIndex,
+  onInitialLessonLoaded,
+}: Props) {
   const [draft, setDraft] = useState<BasicTrainingDraft>(emptyDraft);
   const [ready, setReady] = useState(false);
   const [storageUnavailable, setStorageUnavailable] = useState(false);
@@ -128,6 +146,8 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
   const audioContext = useRef<AudioContext | null>(null);
   const activeErrorTone = useRef<OscillatorNode | null>(null);
   const completedLessonIdsRef = useRef<string[]>([]);
+  const achievementsRef = useRef(achievements);
+  const initialized = useRef(false);
   const [incorrectAttempt, setIncorrectAttempt] = useState<{
     key: string;
     expected: string;
@@ -178,6 +198,10 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
     if (!write(KEYS.basicTraining, next)) setStorageUnavailable(true);
   }, []);
 
+  useLayoutEffect(() => {
+    achievementsRef.current = achievements;
+  }, [achievements]);
+
   const markKeyboardLessonComplete = useCallback((lessonId: string) => {
     if (completedLessonIdsRef.current.includes(lessonId)) return;
     const next = [...completedLessonIdsRef.current, lessonId];
@@ -202,6 +226,8 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
   }, []);
 
   useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
     const saved = read(KEYS.basicTraining, emptyDraft, validBasicTrainingDraft);
     const savedSound = read(
       KEYS.basicTrainingSound,
@@ -213,19 +239,52 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
       [],
       validKeyboardLessonProgress,
     ).filter((id) => keyboardLessons.some((lesson) => lesson.id === id));
+    const savedAchievements = read(
+      KEYS.basicTrainingAchievements,
+      achievements,
+      validKeyboardAchievements,
+    ).filter((achievement) =>
+      keyboardLessons.some((lesson) => lesson.id === achievement.lessonId),
+    );
+    achievementsRef.current = savedAchievements;
+    onAchievementsChange(savedAchievements);
     completedLessonIdsRef.current = savedLessonProgress;
     const restored = restoreBasicTrainingDraft(saved, targetForDraft(saved));
+    const nextLessonDraft =
+      initialLessonIndex !== null &&
+      initialLessonIndex >= 0 &&
+      initialLessonIndex < keyboardLessons.length
+        ? {
+            ...restored,
+            mode: "keyboard" as const,
+            lessonIndex: initialLessonIndex,
+            itemIndex: 0,
+            completedItems: 0,
+            input: "",
+            elapsed: 0,
+            status: "ready" as const,
+            ledger: emptyLedger(),
+          }
+        : restored;
     window.setTimeout(() => {
-      clock.current = { elapsed: restored.elapsed, started: null };
-      setElapsed(restored.elapsed);
+      clock.current = { elapsed: nextLessonDraft.elapsed, started: null };
+      setElapsed(nextLessonDraft.elapsed);
       setSoundEnabled(savedSound);
       setCompletedLessonIds(savedLessonProgress);
-      update(restored);
+      update(nextLessonDraft);
       setReady(true);
       focusPracticeSurface();
+      onInitialLessonLoaded();
     }, 0);
     // Restore the saved exercise once, then focus its input surface.
-  }, [focusPracticeSurface, update]);
+  }, [
+    achievements,
+    focusPracticeSurface,
+    initialLessonIndex,
+    onAchievementsChange,
+    onInitialLessonLoaded,
+    update,
+  ]);
 
   useEffect(
     () => () => {
@@ -333,6 +392,31 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
     setDraft(next);
     write(KEYS.basicTraining, next);
     const result = basicTypingScore(current.ledger, ms);
+    if (
+      status === "completed" &&
+      current.mode === "keyboard" &&
+      current.input.length >= targetForDraft(current).length
+    ) {
+      const lesson = keyboardLessons[current.lessonIndex];
+      if (lesson) {
+        const achievement = evaluateKeyboardAchievement(
+          result.wpm,
+          cumulativeErrorAccuracy(
+            current.ledger.printableKeystrokes,
+            current.ledger.errors,
+          ),
+        );
+        const nextAchievements = mergeKeyboardAchievement(
+          achievementsRef.current,
+          lesson.id,
+          achievement,
+        );
+        achievementsRef.current = nextAchievements;
+        if (!write(KEYS.basicTrainingAchievements, nextAchievements))
+          setStorageUnavailable(true);
+        onAchievementsChange(nextAchievements);
+      }
+    }
     onSessionComplete({
       id: sessionId.current || crypto.randomUUID(),
       date: new Date().toISOString(),
@@ -760,17 +844,24 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
                           (lesson) => lesson.id === exercise.id,
                         );
                         const complete = completedLessonIds.includes(exercise.id);
+                        const achievement = achievements.find(
+                          (item) => item.lessonId === exercise.id,
+                        );
                         const inProgress =
                           !complete &&
                           draft.lessonIndex === index &&
                           (draft.input.length > 0 ||
                             draft.status === "active" ||
                             draft.status === "paused");
-                        const status = complete
-                          ? "Complete"
-                          : inProgress
-                            ? "In progress"
-                            : "Not started";
+                        const status = achievement?.status === "excellent"
+                          ? "EXCELLENT"
+                          : achievement?.status === "clear"
+                            ? "CLEAR"
+                            : achievement?.status === "completed" || complete
+                              ? "COMPLETED"
+                              : inProgress
+                                ? "In progress"
+                                : "NOT STARTED";
                         return (
                           <option key={exercise.id} value={index}>
                             {exercise.title} — {status} ({exercise.difficulty})

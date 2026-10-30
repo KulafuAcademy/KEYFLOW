@@ -37,6 +37,7 @@ export const KEYS = {
   basicTraining: "keyflow.basic-training.v1",
   basicTrainingSound: "keyflow.basic-training-sound.v1",
   basicTrainingLessons: "keyflow.basic-training-lessons.v1",
+  basicTrainingAchievements: "keyflow.basic-training-achievements.v1",
 };
 let staffStorageNamespace: string | null = null;
 export function setStaffStorageNamespace(userId: string) {

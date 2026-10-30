@@ -2265,6 +2265,81 @@ select {
   .basic-training .mode-tabs button { white-space: nowrap; }
   .basic-training .metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+.dashboard-achievement-panel {
+  padding: 15px 18px 13px;
+}
+.dashboard-achievement-summary,
+.dashboard-achievement-title,
+.dashboard-achievement-counts,
+.dashboard-achievement-footer {
+  display: flex;
+  align-items: center;
+}
+.dashboard-achievement-summary {
+  justify-content: space-between;
+  gap: 15px;
+}
+.dashboard-achievement-title {
+  gap: 10px;
+  min-width: 0;
+}
+.dashboard-achievement-icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+}
+.dashboard-achievement-title h2 {
+  margin-top: 3px;
+  font-size: 13px;
+  font-weight: 650;
+}
+.dashboard-achievement-counts {
+  gap: 5px;
+  color: var(--muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+.dashboard-achievement-counts strong {
+  color: var(--text);
+  font: 600 13px monospace;
+  font-variant-numeric: tabular-nums;
+}
+.dashboard-achievement-counts i {
+  width: 1px;
+  height: 17px;
+  margin: 0 7px;
+  background: var(--line);
+}
+.dashboard-achievement-track {
+  height: 6px;
+  margin-top: 12px;
+}
+.dashboard-achievement-track span {
+  transition: width 160ms ease-out;
+}
+.dashboard-achievement-footer {
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 9px;
+  color: var(--muted);
+  font: 9px monospace;
+  letter-spacing: 0.4px;
+}
+.dashboard-achievement-footer button {
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: 10px;
+}
+@media (max-width: 600px) {
+  .dashboard-achievement-panel { padding: 13px; }
+  .dashboard-achievement-summary { align-items: flex-start; flex-direction: column; gap: 10px; }
+  .dashboard-achievement-counts { padding-left: 44px; }
+}
 @media (max-width: 380px) {
   .sidebar { padding-left: 10px; padding-right: 10px; }
   .brand > .wordmark { display: none; }

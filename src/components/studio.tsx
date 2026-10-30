@@ -41,6 +41,12 @@ import {
 import AmplifyPicker from "./amplify-picker";
 import BasicTraining from "./basic-training";
 import LearningDashboard from "./learning-dashboard";
+import {
+  calculateKeyboardProgress,
+  validKeyboardAchievements,
+  type KeyboardAchievement,
+} from "@/lib/basic-training-achievements";
+import { keyboardLessons } from "@/lib/basic-training-content";
 import RemoteMaterials from "./remote-materials";
 import {
   referencePrompt,
@@ -158,6 +164,12 @@ export default function Studio() {
     [view, setView] = useState<View>("progress"),
     [theme, setTheme] = useState("light");
   const [goalWpm, setGoalWpm] = useState(40);
+  const [keyboardAchievements, setKeyboardAchievements] = useState<
+    KeyboardAchievement[]
+  >([]);
+  const [continueLessonIndex, setContinueLessonIndex] = useState<number | null>(
+    null,
+  );
   const [history, setHistory] = useState<Session[]>([]),
     [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [index, setIndex] = useState(0),
@@ -281,6 +293,9 @@ export default function Studio() {
           setGoalWpm(preferences.goalWpm ?? 40);
           setHistory(read(KEYS.history, [], validHistory));
           setDrafts(read(KEYS.drafts, {}, validDrafts));
+          setKeyboardAchievements(
+            read(KEYS.basicTrainingAchievements, [], validKeyboardAchievements),
+          );
           setLoaded(true);
         });
       })
@@ -466,6 +481,22 @@ export default function Studio() {
     setNotice("");
     setConfirm(null);
     if (next === "writing") restore(promptId);
+  }
+  const onAchievementsChange = useCallback(
+    (next: KeyboardAchievement[]) => setKeyboardAchievements(next),
+    [],
+  );
+  const onInitialLessonLoaded = useCallback(
+    () => setContinueLessonIndex(null),
+    [],
+  );
+  function continueTraining() {
+    const progress = calculateKeyboardProgress(
+      keyboardLessons.map((lesson) => lesson.id),
+      keyboardAchievements,
+    );
+    setContinueLessonIndex(progress.nextUnclearedIndex ?? 0);
+    navigate("basic");
   }
   function restore(id: string, selectedPrompt?: Prompt) {
     const d = read<Record<string, Draft>>(KEYS.drafts, {}, validDrafts)[id];
@@ -762,6 +793,10 @@ export default function Studio() {
             <BasicTraining
               history={history}
               onSessionComplete={recordBasicSession}
+              achievements={keyboardAchievements}
+              onAchievementsChange={onAchievementsChange}
+              initialLessonIndex={continueLessonIndex}
+              onInitialLessonLoaded={onInitialLessonLoaded}
             />
           ) : view === "progress" ? (
             <LearningDashboard
@@ -770,6 +805,8 @@ export default function Studio() {
               onGoalChange={setGoalWpm}
               onNavigate={navigate}
               onResetHistory={() => setConfirm("history")}
+              keyboardAchievements={keyboardAchievements}
+              onContinueTraining={continueTraining}
             />
           ) : (
             <>
