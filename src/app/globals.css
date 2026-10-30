@@ -2511,6 +2511,14 @@ main:has(.basic-training) .session-code {
   align-items: center;
   gap: 5px;
   margin-top: 5px;
+  line-height: 1;
+}
+.keyboard-award-row .keyboard-achievement-badge {
+  margin: 0;
+  line-height: 1;
+}
+.keyboard-award-row .keyboard-perfect-badge {
+  line-height: 1;
 }
 .keyboard-achievement-bronze,
 .keyboard-medal-tag.bronze {
