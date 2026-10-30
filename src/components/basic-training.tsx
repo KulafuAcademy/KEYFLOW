@@ -454,7 +454,7 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
   if (!ready)
     return <div className="panel p-6 text-sm">Restoring your training…</div>;
   return (
-    <div className="basic-training space-y-4">
+    <div className="basic-training">
       <div className="mode-tabs" aria-label="Basic training modes">
         {modes.map(({ id, label }) => (
           <button
@@ -467,287 +467,314 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
           </button>
         ))}
       </div>
-      <div className="metrics-grid">
-        <BasicMetric
-          label="NET SPEED"
-          value={score.wpm.toFixed(1)}
-          unit="WPM"
-          icon={<Zap size={14} />}
-        />
-        <BasicMetric
-          label="ACCURACY"
-          value={`${score.accuracy.toFixed(1)}%`}
-          icon={<Target size={14} />}
-        />
-        <BasicMetric
-          label={timed ? "TIME LEFT" : "TIME PRACTISED"}
-          value={timeLabel(timed ? limit - elapsed : elapsed)}
-          icon={<Clock3 size={14} />}
-        />
-        <BasicMetric
-          label="CORRECT / ERRORS"
-          value={`${score.correctCharacters} / ${score.errors}`}
-          icon={<Activity size={14} />}
-        />
-      </div>
-      <section className="panel p-4 sm:p-6" aria-label="Basic typing practice">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--line)] pb-3">
-          <div>
-            <div className="eyebrow">
-              BASIC TRAINING / {draft.mode.toUpperCase()}
+      <div className="basic-training-layout">
+        <section
+          className="panel basic-training-primary"
+          aria-label="Basic typing practice"
+        >
+          <div className="basic-training-titlebar">
+            <div>
+              <div className="eyebrow">
+                BASIC TRAINING / {draft.mode.toUpperCase()}
+              </div>
+              <h2>{title}</h2>
             </div>
-            <h2 className="mt-1 text-lg font-semibold">{title}</h2>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {(draft.mode === "words" || draft.mode === "sentences") && (
-              <select
-                aria-label="Difficulty"
-                value={draft.difficulty}
-                onChange={(e) => chooseDifficulty(e.target.value as Difficulty)}
-                className="border border-[var(--line)] bg-[var(--panel)] px-2 py-1.5 text-sm"
-              >
-                {difficulties.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </select>
-            )}
-            {timed && (
-              <div className="segmented" aria-label="Test duration">
-                {([1, 3, 5] as const).map((n) => (
-                  <button
-                    key={n}
-                    className={draft.duration === n ? "active" : ""}
-                    onClick={() => chooseDuration(n)}
+          {draft.mode === "free" && (
+            <div className="basic-training-reference">
+              <label htmlFor="free-reference">YOUR REFERENCE TEXT</label>
+              <textarea
+                id="free-reference"
+                value={draft.freeSource}
+                onChange={(e) => changeFreeSource(e.target.value)}
+              />
+              <button className="secondary w-fit" onClick={applyFreeSource}>
+                Use this text
+              </button>
+            </div>
+          )}
+          <div
+            ref={guidedMode ? trainingSurface : undefined}
+            className={
+              guidedMode ? "training-surface" : "basic-training-target"
+            }
+            role={guidedMode ? "group" : undefined}
+            aria-label={
+              guidedMode
+                ? "Typing exercise. Type the highlighted character with your physical keyboard."
+                : "Text to type"
+            }
+            tabIndex={guidedMode ? 0 : undefined}
+            onKeyDown={guidedMode ? handleGuidedKeyDown : undefined}
+            onClick={
+              guidedMode ? () => trainingSurface.current?.focus() : undefined
+            }
+            onPaste={
+              guidedMode
+                ? (event) => {
+                    event.preventDefault();
+                  }
+                : undefined
+            }
+          >
+            <div className="basic-target-card">
+              <div className="basic-target-label">
+                <span>TARGET TEXT</span>
+                <span>
+                  {draft.mode === "words" || draft.mode === "sentences"
+                    ? `ITEM ${draft.itemIndex + 1} · ${draft.completedItems} COMPLETE · ${draft.input.length}/${target.length}`
+                    : `${draft.input.length} / ${target.length}`}
+                </span>
+              </div>
+              <div className="target-text" aria-live="polite">
+                {states.map((item, index) => (
+                  <span
+                    key={index}
+                    className={`target-char ${item.state}${item.state === "current" && incorrectAttempt ? " error-current" : ""}`}
+                    aria-current={item.state === "current" ? "true" : undefined}
                   >
-                    {n} min
-                  </button>
+                    {item.character === " " ? "\u00a0" : item.character}
+                  </span>
                 ))}
               </div>
-            )}
-            <button className="secondary" onClick={() => restart()}>
-              <RotateCcw size={14} /> Restart
-            </button>
-            {draft.status === "active" ? (
-              <button
-                ref={resumeButton}
-                className="secondary"
-                onClick={() => {
-                  const ms = elapsedMs(clock.current, Date.now(), limit);
-                  clock.current = { elapsed: ms, started: null };
-                  setElapsed(ms);
-                  update({
-                    ...draftRef.current,
-                    elapsed: ms,
-                    status: "paused",
-                  });
-                }}
-              >
-                <Pause size={14} /> Pause
-              </button>
-            ) : draft.status === "paused" ? (
-              <button
-                className="secondary"
-                onClick={() => {
-                  clock.current = {
-                    elapsed: draft.elapsed,
-                    started: Date.now(),
-                  };
-                  update({ ...draftRef.current, status: "active" });
-                  focusPracticeSurface();
-                }}
-              >
-                <Play size={14} /> Resume
-              </button>
-            ) : null}
-            {draft.mode !== "speed" && !finished && (
-              <button
-                className="secondary"
-                onClick={() => complete("completed")}
-                disabled={!draft.ledger.printableKeystrokes}
-              >
-                Finish
-              </button>
+            </div>
+            {guidedMode && (
+              <KeyboardGuide target={target} input={draft.input} />
             )}
           </div>
-        </div>
-        {draft.mode === "free" && (
-          <div className="mt-4 grid gap-2">
-            <label className="text-xs font-semibold" htmlFor="free-reference">
-              YOUR REFERENCE TEXT
-            </label>
-            <textarea
-              id="free-reference"
-              className="min-h-20 w-full resize-y border border-[var(--line)] bg-[var(--panel)] p-3 text-sm"
-              value={draft.freeSource}
-              onChange={(e) => changeFreeSource(e.target.value)}
-            />
-            <button className="secondary w-fit" onClick={applyFreeSource}>
-              Use this text
-            </button>
-          </div>
-        )}
-        <div
-          ref={guidedMode ? trainingSurface : undefined}
-          className={guidedMode ? "training-surface mt-4 grid gap-3" : "mt-4"}
-          role={guidedMode ? "group" : undefined}
-          aria-label={
-            guidedMode
-              ? "Typing exercise. Type the highlighted character with your physical keyboard."
-              : "Text to type"
-          }
-          tabIndex={guidedMode ? 0 : undefined}
-          onKeyDown={guidedMode ? handleGuidedKeyDown : undefined}
-          onClick={guidedMode ? () => trainingSurface.current?.focus() : undefined}
-          onPaste={
-            guidedMode
-              ? (event) => {
-                  event.preventDefault();
+          {!guidedMode && (
+            <>
+              <label htmlFor="basic-typing-input" className="sr-only">
+                Type the target text
+              </label>
+              <textarea
+                ref={textarea}
+                id="basic-typing-input"
+                aria-label="Type the target text"
+                autoCapitalize="off"
+                autoCorrect="off"
+                spellCheck={false}
+                autoComplete="off"
+                value={draft.input}
+                disabled={finished || draft.status === "paused"}
+                onChange={(e) => edit(e.target.value)}
+                onPaste={(e) => {
+                  e.preventDefault();
+                }}
+                placeholder={
+                  draft.status === "paused"
+                    ? "Paused — resume to continue"
+                    : "Click here or start typing…"
                 }
-              : undefined
-          }
-        >
-          <div className="rounded border border-[var(--line)] bg-[var(--surface)] p-4">
-            <div className="mb-2 flex justify-between text-[10px] font-bold tracking-widest text-[var(--muted)]">
-              <span>TARGET TEXT</span>
-              <span>
-                {draft.mode === "words" || draft.mode === "sentences"
-                  ? `ITEM ${draft.itemIndex + 1} · ${draft.completedItems} COMPLETE · ${draft.input.length}/${target.length}`
-                  : `${draft.input.length} / ${target.length}`}
-              </span>
-            </div>
-            <div className="target-text" aria-live="polite">
-              {states.map((item, index) => (
-                <span
-                  key={index}
-                  className={`target-char ${item.state}${item.state === "current" && incorrectAttempt ? " error-current" : ""}`}
-                  aria-current={item.state === "current" ? "true" : undefined}
-                >
-                  {item.character === " " ? "\u00a0" : item.character}
-                </span>
-              ))}
-            </div>
+                className="basic-typing-input outline-none focus:border-[var(--text)] disabled:opacity-70"
+              />
+            </>
+          )}
+          <div className="basic-training-feedback">
+            <span
+              role="status"
+              className={incorrectAttempt ? "training-feedback-error" : ""}
+            >
+              {incorrectAttempt && guidedMode
+                ? `Incorrect “${displayKey(incorrectAttempt.key)}” · type “${displayKey(incorrectAttempt.expected)}” to continue · ${draft.ledger.errors} errors`
+                : draft.status === "ready"
+                  ? "Ready · type on your keyboard; timer starts on the first key"
+                  : draft.status === "active"
+                    ? guidedMode
+                      ? `Running · type the highlighted key; ${draft.ledger.errors} errors counted`
+                      : "Running · mistakes stay counted in your results"
+                    : draft.status === "paused"
+                      ? "Paused · select Resume to continue typing"
+                      : draft.status === "timed-out"
+                        ? "Time is up · results saved"
+                        : "Complete · results saved"}
+            </span>
+            <span>Net WPM = (key presses − errors) ÷ 5 ÷ minutes</span>
           </div>
-          {guidedMode && <KeyboardGuide target={target} input={draft.input} />}
-        </div>
-        {!guidedMode && (
-          <>
-            <label htmlFor="basic-typing-input" className="sr-only">
-              Type the target text
-            </label>
-            <textarea
-              ref={textarea}
-              id="basic-typing-input"
-              aria-label="Type the target text"
-              autoCapitalize="off"
-              autoCorrect="off"
-              spellCheck={false}
-              autoComplete="off"
-              value={draft.input}
-              disabled={finished || draft.status === "paused"}
-              onChange={(e) => edit(e.target.value)}
-              onPaste={(e) => {
-                e.preventDefault();
-              }}
-              placeholder={
-                draft.status === "paused"
-                  ? "Paused — resume to continue"
-                  : "Click here or start typing…"
-              }
-              className="mt-3 min-h-28 w-full resize-y border border-[var(--line)] bg-[var(--panel)] p-4 font-mono text-base leading-7 outline-none focus:border-[var(--text)] disabled:opacity-70"
+          {finished && (
+            <div className="basic-training-results" role="status">
+              <h3 className="font-semibold">
+                {draft.status === "timed-out"
+                  ? "Speed test complete"
+                  : lessonComplete
+                    ? "Lesson complete"
+                    : "Session complete"}
+              </h3>
+              <p>
+                {score.wpm.toFixed(1)} WPM · {score.accuracy.toFixed(1)}%
+                accuracy · {score.correctCharacters} correct characters ·{" "}
+                {score.errors} errors in {timeLabel(elapsed)}.
+              </p>
+              <div>
+                <button className="secondary" onClick={() => restart()}>
+                  Retry
+                </button>
+                {lessonComplete && (
+                  <button
+                    className="primary"
+                    onClick={() => {
+                      const nextLesson = nextLessonIndex(
+                        draft.lessonIndex,
+                        keyboardLessons.length,
+                      );
+                      update({
+                        ...draftRef.current,
+                        lessonIndex: nextLesson,
+                        input: "",
+                        elapsed: 0,
+                        status: "ready",
+                        ledger: emptyLedger(),
+                      });
+                      clock.current = { elapsed: 0, started: null };
+                      setElapsed(0);
+                      sessionId.current = "";
+                      setIncorrectAttempt(null);
+                      focusPracticeSurface();
+                    }}
+                  >
+                    <Keyboard size={14} /> Next lesson
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </section>
+        <aside
+          className="basic-training-aside"
+          aria-label="Training statistics and controls"
+        >
+          <div className="basic-training-metrics">
+            <BasicMetric
+              label="WPM"
+              value={score.wpm.toFixed(1)}
+              unit=""
+              icon={<Zap size={13} />}
             />
-          </>
-        )}
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--muted)]">
-          <span
-            role="status"
-            className={incorrectAttempt ? "training-feedback-error" : ""}
+            <BasicMetric
+              label="ACCURACY"
+              value={`${score.accuracy.toFixed(1)}%`}
+              unit=""
+              icon={<Target size={13} />}
+            />
+            <BasicMetric
+              label={timed ? "TIME LEFT" : "PRACTICE TIME"}
+              value={timeLabel(timed ? limit - elapsed : elapsed)}
+              unit=""
+              icon={<Clock3 size={13} />}
+            />
+            <BasicMetric
+              label="CORRECT / ERRORS"
+              value={`${score.correctCharacters} / ${score.errors}`}
+              unit=""
+              icon={<Activity size={13} />}
+            />
+          </div>
+          <section
+            className="panel basic-training-controls-panel"
+            aria-label="Practice controls"
           >
-            {incorrectAttempt && guidedMode
-              ? `Incorrect “${displayKey(incorrectAttempt.key)}” · type “${displayKey(incorrectAttempt.expected)}” to continue · ${draft.ledger.errors} errors`
-              : draft.status === "ready"
-                ? "Ready · type on your keyboard; timer starts on the first key"
-                : draft.status === "active"
-                  ? guidedMode
-                    ? `Running · type the highlighted key; ${draft.ledger.errors} errors counted`
-                    : "Running · mistakes stay counted in your results"
-                  : draft.status === "paused"
-                    ? "Paused · select Resume to continue typing"
-                    : draft.status === "timed-out"
-                      ? "Time is up · results saved"
-                      : "Complete · results saved"}
-          </span>
-          <span>Net WPM = (key presses − errors) ÷ 5 ÷ minutes</span>
-        </div>
-        {finished && (
-          <div className="mt-4 border border-[var(--line)] p-4" role="status">
-            <h3 className="font-semibold">
-              {draft.status === "timed-out"
-                ? "Speed test complete"
-                : lessonComplete
-                  ? "Lesson complete"
-                  : "Session complete"}
-            </h3>
-            <p className="mt-1 text-sm text-[var(--muted)]">
-              {score.wpm.toFixed(1)} WPM · {score.accuracy.toFixed(1)}% accuracy
-              · {score.correctCharacters} correct characters · {score.errors}{" "}
-              errors in {timeLabel(elapsed)}.
-            </p>
-            <div className="mt-3 flex gap-2">
+            <div className="panel-title">
+              <h2>Session controls</h2>
+              <span className="mono">{draft.status.toUpperCase()}</span>
+            </div>
+            <div className="basic-training-control-list">
+              {(draft.mode === "words" || draft.mode === "sentences") && (
+                <select
+                  aria-label="Difficulty"
+                  value={draft.difficulty}
+                  onChange={(e) =>
+                    chooseDifficulty(e.target.value as Difficulty)
+                  }
+                >
+                  {difficulties.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {timed && (
+                <div className="segmented" aria-label="Test duration">
+                  {([1, 3, 5] as const).map((n) => (
+                    <button
+                      key={n}
+                      aria-pressed={draft.duration === n}
+                      className={draft.duration === n ? "active" : ""}
+                      onClick={() => chooseDuration(n)}
+                    >
+                      {n} min
+                    </button>
+                  ))}
+                </div>
+              )}
               <button className="secondary" onClick={() => restart()}>
-                Retry
+                <RotateCcw size={14} /> Restart
               </button>
-              {lessonComplete && (
+              {draft.status === "active" ? (
                 <button
-                  className="primary"
+                  ref={resumeButton}
+                  className="secondary"
                   onClick={() => {
-                    const nextLesson = nextLessonIndex(
-                      draft.lessonIndex,
-                      keyboardLessons.length,
-                    );
+                    const ms = elapsedMs(clock.current, Date.now(), limit);
+                    clock.current = { elapsed: ms, started: null };
+                    setElapsed(ms);
                     update({
                       ...draftRef.current,
-                      lessonIndex: nextLesson,
-                      input: "",
-                      elapsed: 0,
-                      status: "ready",
-                      ledger: emptyLedger(),
+                      elapsed: ms,
+                      status: "paused",
                     });
-                    clock.current = { elapsed: 0, started: null };
-                    setElapsed(0);
-                    sessionId.current = "";
-                    setIncorrectAttempt(null);
+                  }}
+                >
+                  <Pause size={14} /> Pause
+                </button>
+              ) : draft.status === "paused" ? (
+                <button
+                  className="secondary"
+                  onClick={() => {
+                    clock.current = {
+                      elapsed: draft.elapsed,
+                      started: Date.now(),
+                    };
+                    update({ ...draftRef.current, status: "active" });
                     focusPracticeSurface();
                   }}
                 >
-                  <Keyboard size={14} /> Next lesson
+                  <Play size={14} /> Resume
+                </button>
+              ) : null}
+              {draft.mode !== "speed" && !finished && (
+                <button
+                  className="secondary"
+                  onClick={() => complete("completed")}
+                  disabled={!draft.ledger.printableKeystrokes}
+                >
+                  Finish
                 </button>
               )}
             </div>
-          </div>
-        )}
-      </section>
-      <section className="panel p-4">
-        <div className="panel-title">
-          <h2>Commonly missed keys</h2>
-          <span className="mono">LOCAL HISTORY</span>
-        </div>
-        {mistakes.length ? (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {mistakes.map(([key, count]) => (
-              <span key={key} className="tag">
-                {key === " " ? "Space" : key} · {count}
-              </span>
-            ))}
-          </div>
-        ) : (
-          <p className="mt-2 text-sm text-[var(--muted)]">
-            Your frequently mistyped target keys will appear here after a few
-            sessions.
-          </p>
-        )}
-      </section>
+          </section>
+          <section className="panel p-4">
+            <div className="panel-title">
+              <h2>Commonly missed keys</h2>
+              <span className="mono">LOCAL HISTORY</span>
+            </div>
+            {mistakes.length ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {mistakes.map(([key, count]) => (
+                  <span key={key} className="tag">
+                    {key === " " ? "Space" : key} · {count}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-2 text-sm text-[var(--muted)]">
+                Your frequently mistyped target keys will appear here after a
+                few sessions.
+              </p>
+            )}
+          </section>
+        </aside>
+      </div>
       {storageUnavailable && (
         <p className="text-xs text-amber-700" role="status">
           Browser storage is unavailable. Your current practice will remain in
@@ -919,14 +946,21 @@ function KeyboardGuide({ target, input }: { target: string; input: string }) {
       </div>
       {needsShift && required !== " " && (
         <p className="keyboard-shift-hint">
-          Hold the {shiftHand}-hand Shift key while pressing the highlighted key.
+          Hold the {shiftHand}-hand Shift key while pressing the highlighted
+          key.
         </p>
       )}
     </div>
   );
 }
 
-function FingerShape({ finger, active }: { finger: FingerId; active: boolean }) {
+function FingerShape({
+  finger,
+  active,
+}: {
+  finger: FingerId;
+  active: boolean;
+}) {
   return (
     <span
       className={`finger-shape-wrap${finger.includes("thumb") ? " thumb" : ""}`}
