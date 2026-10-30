@@ -1,6 +1,6 @@
 # KEYFLOW
 
-A browser-local IELTS Academic typing studio built with Next.js App Router, TypeScript, and Tailwind CSS. No accounts, database, AI API, environment variables, or runtime paid services.
+A staff-only IELTS Academic typing studio built with Next.js App Router, TypeScript, and Tailwind CSS. Staff sign in through AMPLIFY's Supabase Auth; practice data stays browser-local. KEYFLOW uses no database, AI API, or paid runtime service.
 
 ## Run
 
@@ -37,9 +37,13 @@ Writing practice also supports AMPLIFY’s published Writing bank, including Aca
 
 No Supabase keys are required in KEYFLOW. `AMPLIFY_API_ORIGIN` is an optional server-only origin override; production defaults to AMPLIFY’s public domain. See [integration details](docs/amplify-writing-integration.md).
 
+## Staff access
+
+KEYFLOW uses AMPLIFY's existing Supabase Auth for staff sign-in. Staff status is granted separately through the Auth user's server-managed `app_metadata.staff_access` flag. Configure the server-only `AMPLIFY_SUPABASE_URL` and `AMPLIFY_SUPABASE_ANON_KEY` variables; no service-role key is used by KEYFLOW. Setup and role management are documented in [staff access operations](docs/staff-access.md).
+
 ## Storage and privacy
 
-Versioned localStorage keys: `keyflow.history.v1`, `keyflow.drafts.v1`, `keyflow.preferences.v1`. No response or progress is sent to a server. Storage is specific to browser and origin. Clearing site data or using private browsing can remove progress. Export important writing. Drafts do not transfer from localhost/preview to production.
+Versioned localStorage keys are scoped per staff user after sign-in. Existing unscoped KEYFLOW data migrates to the first signed-in user's namespace on that browser, preserving history, drafts, and preferences. No response or progress is sent to a server. Storage is specific to browser and origin. Clearing site data or using private browsing can remove progress. Export important writing. Drafts do not transfer from localhost/preview to production.
 
 ## Checks
 
@@ -54,7 +58,7 @@ Unit tests cover WPM, accuracy, zero-time input, corrections and extra character
 
 ## Vercel
 
-Import `KulafuAcademy/KEYFLOW`, detect **Next.js**, and use `main` as the production branch. Root directory is the repository root. No environment variables are required. Vercel's GitHub connection deploys pushes to `main` automatically and creates previews for other branches. `.vercel/` stays local and is ignored by Git.
+Import `KulafuAcademy/KEYFLOW`, detect **Next.js**, and use `main` as the production branch. Root directory is the repository root. Set the two AMPLIFY Auth environment variables above in each Vercel environment. Vercel's GitHub connection deploys pushes to `main` automatically and creates previews for other branches. `.vercel/` stays local and is ignored by Git.
 
 ## Structure
 

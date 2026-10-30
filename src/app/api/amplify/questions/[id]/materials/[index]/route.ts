@@ -1,17 +1,22 @@
 import { UUID } from "@/lib/amplify";
 import { fetchUpstream, noStore } from "@/lib/amplify-upstream";
+import { requireStaff } from "@/lib/staff-auth";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string; index: string }> },
 ) {
+  const { accessToken, response } = await requireStaff();
+  if (response) return response;
   const { id, index } = await params;
   if (!UUID.test(id) || !/^\d{1,2}$/.test(index))
     return new Response("Invalid material.", { status: 400, headers: noStore });
   try {
     const r = await fetchUpstream(
       `/api/writing-questions/${id}/materials/${index}`,
+      fetch,
+      accessToken,
     );
     if (!r.ok)
       return new Response("Material is unavailable or no longer published.", {

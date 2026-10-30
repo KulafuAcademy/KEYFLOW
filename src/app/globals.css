@@ -2142,3 +2142,19 @@ select {
     min-height: 36px;
   }
 }
+/* Central staff access */
+.staff-login { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: #f5f5f3; color: #171717; font-family: var(--font-sans), Arial, sans-serif; }
+.staff-login-card { width: min(100%, 390px); display: grid; gap: 18px; padding: 32px; border: 1px solid #d5d5d1; background: white; box-shadow: 0 12px 40px #0000000a; }
+.staff-brand { font-size: 20px; font-weight: 800; letter-spacing: .18em; text-decoration: none; color: inherit; }
+.staff-brand span { color: #777; }
+.staff-login-card > p { margin: 0; color: #70706c; font: 700 10px/1.2 var(--font-mono), monospace; letter-spacing: .16em; }
+.staff-login-card h1 { margin: -10px 0 2px; font-size: 23px; letter-spacing: -.04em; }
+.staff-login-card label { display: grid; gap: 7px; font-size: 12px; font-weight: 650; }
+.staff-login-card input { min-height: 44px; padding: 10px 12px; border: 1px solid #c7c7c2; border-radius: 0; background: #fff; color: #171717; font-size: 16px; }
+.staff-login-card input:focus-visible { outline: 2px solid #171717; outline-offset: 2px; }
+.staff-login-card button { min-height: 45px; border: 1px solid #171717; background: #171717; color: #fff; font-weight: 700; cursor: pointer; }
+.staff-login-card button:disabled { opacity: .6; cursor: wait; }
+.staff-login-card small { color: #686862; font-size: 11px; line-height: 1.5; }
+.staff-error { color: #9e2626; font-size: 12px; }
+.staff-signout { color: var(--muted); font: 700 9px/1 var(--font-mono), monospace; letter-spacing: .08em; text-decoration: none; }
+.staff-signout:hover, .staff-signout:focus-visible { color: var(--text); text-decoration: underline; }
