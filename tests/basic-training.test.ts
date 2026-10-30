@@ -20,6 +20,7 @@ import {
   keyboardSpaceInstruction,
   keyboardSpaceNextLessonIndex,
   normalizeTrainingKey,
+  normalizeKeyboardLessonIndex,
   resolveBasicTrainingSpaceEvent,
   nextLessonIndex,
   recordGuidedKeystroke,
@@ -184,6 +185,18 @@ test("keyboard lesson completion progress is validated and shift fingers use the
   assert.equal(shiftFingerForCharacter("!"), "right-pinky");
   assert.equal(shiftFingerForCharacter("?"), "left-pinky");
   assert.equal(shiftFingerForCharacter("t"), null);
+});
+
+test("restored keyboard lesson indexes stay aligned with the target and selector", () => {
+  assert.equal(normalizeKeyboardLessonIndex(0, 55), 0);
+  assert.equal(normalizeKeyboardLessonIndex(54, 55), 54);
+  assert.equal(normalizeKeyboardLessonIndex(56, 55), 1);
+  assert.equal(normalizeKeyboardLessonIndex(-1, 55), 54);
+  assert.equal(normalizeKeyboardLessonIndex(2, 0), 0);
+  assert.equal(
+    keyboardLessons[normalizeKeyboardLessonIndex(56, 55)].id,
+    keyboardLessons[56 % keyboardLessons.length].id,
+  );
 });
 
 test("finger guide uses standard assignments and keeps both hands in left-to-right order", () => {

@@ -338,6 +338,11 @@ export function nextLessonIndex(index: number, count: number) {
   return count > 0 ? (index + 1) % count : 0;
 }
 
+export function normalizeKeyboardLessonIndex(index: number, count: number) {
+  if (count <= 0 || !Number.isSafeInteger(index)) return 0;
+  return ((index % count) + count) % count;
+}
+
 export function adjacentKeyboardLessonIndex(
   index: number,
   count: number,

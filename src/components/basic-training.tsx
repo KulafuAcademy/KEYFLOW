@@ -51,6 +51,7 @@ import {
   characterStates,
   emptyLedger,
   normalizeTrainingKey,
+  normalizeKeyboardLessonIndex,
   recordGuidedKeystroke,
   recordTypingEdit,
   restoreBasicTrainingDraft,
@@ -172,14 +173,24 @@ export default function BasicTraining({
     draft.mode === "sentences";
   const limit = timed ? draft.duration * 60_000 : Infinity;
   const finished = draft.status === "completed" || draft.status === "timed-out";
-  const currentLesson = keyboardLessons[draft.lessonIndex % keyboardLessons.length];
-  const previousKeyboardLesson = adjacentKeyboardLessonIndex(
+  const selectedLessonIndex = normalizeKeyboardLessonIndex(
     draft.lessonIndex,
+    keyboardLessons.length,
+  );
+  const currentLesson = keyboardLessons[selectedLessonIndex];
+  const currentLessonAchievement = achievements.find(
+    (achievement) => achievement.lessonId === currentLesson.id,
+  );
+  const currentLessonMedal = keyboardAchievementMedal(
+    currentLessonAchievement,
+  );
+  const previousKeyboardLesson = adjacentKeyboardLessonIndex(
+    selectedLessonIndex,
     keyboardLessons.length,
     "previous",
   );
   const nextKeyboardLesson = adjacentKeyboardLessonIndex(
-    draft.lessonIndex,
+    selectedLessonIndex,
     keyboardLessons.length,
     "next",
   );
@@ -265,7 +276,18 @@ export default function BasicTraining({
     achievementsRef.current = savedAchievements;
     onAchievementsChange(savedAchievements);
     completedLessonIdsRef.current = savedLessonProgress;
-    const restored = restoreBasicTrainingDraft(saved, targetForDraft(saved));
+    const restoredDraft = restoreBasicTrainingDraft(
+      saved,
+      targetForDraft(saved),
+    );
+    const restoredLessonIndex = normalizeKeyboardLessonIndex(
+      restoredDraft.lessonIndex,
+      keyboardLessons.length,
+    );
+    const restored =
+      restoredLessonIndex === restoredDraft.lessonIndex
+        ? restoredDraft
+        : { ...restoredDraft, lessonIndex: restoredLessonIndex };
     const nextLessonDraft =
       initialLessonIndex !== null &&
       initialLessonIndex >= 0 &&
@@ -984,6 +1006,26 @@ export default function BasicTraining({
                   )}
                 </div>
               )}
+              {draft.mode === "keyboard" && currentLessonAchievement && (
+                <div
+                  className="keyboard-award-row keyboard-saved-award-row"
+                  role="status"
+                  aria-label={`Saved achievement for ${currentLesson.title}`}
+                >
+                  <span
+                    className={`keyboard-achievement-badge keyboard-achievement-${currentLessonMedal ?? "completed"}`}
+                  >
+                    {currentLessonMedal
+                      ? `BEST · ${currentLessonMedal.toUpperCase()}`
+                      : keyboardAchievementWasAttempted(currentLessonAchievement)
+                        ? "COMPLETED · NO MEDAL"
+                        : "NO MEDAL"}
+                  </span>
+                  {keyboardAchievementIsPerfect(currentLessonAchievement) && (
+                    <span className="keyboard-perfect-badge">★ PERFECT</span>
+                  )}
+                </div>
+              )}
               {draft.mode === "keyboard" && (
                 <p className="keyboard-exercise-objective">
                   {currentLesson.objective}
@@ -995,7 +1037,7 @@ export default function BasicTraining({
                 <span>LESSON</span>
                 <select
                   aria-label="Keyboard lesson"
-                  value={draft.lessonIndex}
+                  value={selectedLessonIndex}
                   onChange={(event) =>
                     chooseKeyboardLesson(Number(event.target.value))
                   }
@@ -1036,7 +1078,7 @@ export default function BasicTraining({
                     </optgroup>
                   ))}
                 </select>
-                <small>{completedLessonIds.length}/{keyboardLessons.length}</small>
+                <small>{completedLessonIds.length} complete</small>
               </label>
             )}
           </div>
@@ -1065,8 +1107,8 @@ export default function BasicTraining({
                           <button
                             key={exercise.id}
                             type="button"
-                            className={`keyboard-achievement-card${index === draft.lessonIndex ? " selected" : ""}`}
-                            aria-current={index === draft.lessonIndex ? "step" : undefined}
+                            className={`keyboard-achievement-card${index === selectedLessonIndex ? " selected" : ""}`}
+                            aria-current={index === selectedLessonIndex ? "step" : undefined}
                             onClick={() => chooseKeyboardLesson(index)}
                           >
                             <span className="keyboard-achievement-card-title">
@@ -1130,7 +1172,7 @@ export default function BasicTraining({
                 <span>TARGET TEXT</span>
                 <span>
                   {draft.mode === "keyboard"
-                    ? `LESSON ${draft.lessonIndex + 1} / ${keyboardLessons.length} · ${draft.input.length}/${target.length}`
+                    ? `LESSON ${selectedLessonIndex + 1} / ${keyboardLessons.length} · ${draft.input.length}/${target.length}`
                     : draft.mode === "words" || draft.mode === "sentences"
                     ? `ITEM ${draft.itemIndex + 1} · ${draft.completedItems} COMPLETE · ${draft.input.length}/${target.length}`
                     : `${draft.input.length} / ${target.length}`}
