@@ -40,6 +40,7 @@ import {
   type VisualCategory,
 } from "@/lib/task1-visuals";
 import AmplifyPicker from "./amplify-picker";
+import BasicTraining from "./basic-training";
 import RemoteMaterials from "./remote-materials";
 import {
   referencePrompt,
@@ -75,16 +76,26 @@ const QuestionVisual = dynamic(() => import("./question-visual"), {
 });
 const writingPrompts: Prompt[] = [...prompts, ...visualQuestions];
 
-type View = Mode | "progress";
+type View = Mode | "progress" | "basic";
 const labels: Record<Mode, string> = {
   drill: "Typing drill",
   copy: "Copy practice",
   writing: "Writing simulation",
+  keyboard: "Keyboard training",
+  words: "Word training",
+  sentences: "Sentence training",
+  speed: "Speed training",
+  free: "Free typing",
 };
 const descriptions: Record<Mode, string> = {
   drill: "Small repetitions. Lasting precision.",
   copy: "Find your rhythm in academic English.",
   writing: "Your ideas. Exam conditions.",
+  keyboard: "Build comfortable, accurate finger movement from the home row upward.",
+  words: "Practise useful English vocabulary at a pace that suits you.",
+  sentences: "Build rhythm and accuracy with complete natural sentences.",
+  speed: "A focused timed test with transparent speed and accuracy measures.",
+  free: "Choose your own text and practise reproducing it accurately.",
 };
 const statusText: Record<Status, string> = {
   ready: "Ready when you are",
@@ -164,7 +175,7 @@ export default function Studio() {
     sessionId = useRef(""),
     editor = useRef<HTMLTextAreaElement>(null),
     confirmRef = useRef<HTMLButtonElement>(null);
-  const mode: Mode = view === "progress" ? "drill" : view;
+  const mode: Mode = view === "progress" || view === "basic" ? "drill" : view;
   const exercise = (mode === "copy" ? passages : drills)[
     index % (mode === "copy" ? passages.length : drills.length)
   ];
@@ -214,6 +225,13 @@ export default function Studio() {
     if (!ok) setStorageError(true);
     return ok;
   }, []);
+  const recordBasicSession = useCallback((session: Session) => {
+    setHistory((old) => {
+      const next = appendSession(old, session);
+      persist(KEYS.history, next);
+      return next;
+    });
+  }, [persist]);
   useEffect(() => {
     let cancelled = false;
     void fetch("/api/staff/me", { cache: "no-store" }).then((response) => {
@@ -590,18 +608,19 @@ export default function Studio() {
           {(
             [
               { id: "drill", name: "Typing drill", icon: Keyboard, n: "01" },
-              { id: "copy", name: "Copy practice", icon: BookOpen, n: "02" },
+              { id: "basic", name: "Basic Training", icon: Target, n: "02" },
+              { id: "copy", name: "Copy practice", icon: BookOpen, n: "03" },
               {
                 id: "writing",
                 name: "Writing simulation",
                 icon: Type,
-                n: "03",
+                n: "04",
               },
               {
                 id: "progress",
                 name: "Your progress",
                 icon: BarChart3,
-                n: "04",
+                n: "05",
               },
             ] as const
           ).map((item) => (
@@ -650,7 +669,7 @@ export default function Studio() {
             <span className="crumb">Workspace</span>
             <ChevronRight size={13} />
             <strong>
-              {view === "progress" ? "Your progress" : labels[mode]}
+              {view === "progress" ? "Your progress" : view === "basic" ? "Basic Training" : labels[mode]}
             </strong>
           </div>
           <span className="topbar-right">
@@ -663,18 +682,14 @@ export default function Studio() {
             <div>
               <div className="eyebrow">
                 <span className="square" />{" "}
-                {view === "progress"
-                  ? "YOUR PERSONAL RECORD"
-                  : "PURPOSEFUL PRACTICE / REAL PROGRESS"}
+                {view === "progress" ? "YOUR PERSONAL RECORD" : view === "basic" ? "FOUNDATIONS / BUILD YOUR FLOW" : "PURPOSEFUL PRACTICE / REAL PROGRESS"}
               </div>
               <h1>
-                {view === "progress" ? "Every session counts" : labels[mode]}
+                {view === "progress" ? "Every session counts" : view === "basic" ? "Basic Training" : labels[mode]}
                 <span className="heading-dot">.</span>
               </h1>
               <p>
-                {view === "progress"
-                  ? "A little more fluent. A little more confident."
-                  : descriptions[mode]}
+                {view === "progress" ? "A little more fluent. A little more confident." : view === "basic" ? "Start with the keyboard, then build toward confident English typing." : descriptions[mode]}
               </p>
             </div>
             <div className="session-code">
@@ -696,7 +711,9 @@ export default function Studio() {
               your writing before leaving.
             </div>
           )}
-          {view === "progress" ? (
+          {view === "basic" ? (
+            <BasicTraining history={history} onSessionComplete={recordBasicSession} />
+          ) : view === "progress" ? (
             <>
               <div className="metrics-grid">
                 <Metric
