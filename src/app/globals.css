@@ -2154,8 +2154,10 @@ select {
 .keycap.next-key .keycap-shift-legend { color: #5b371b; }
 .keycap-wide { min-width: 62px; }
 .keycap-space { min-width: min(190px, 42vw); }
-.training-surface { min-width: 0; outline: none; -webkit-tap-highlight-color: transparent; }
-.training-surface:focus-visible { border-radius: 4px; outline: 2px solid #d67b26; outline-offset: 3px; }
+.training-surface { min-width: 0; -webkit-tap-highlight-color: transparent; }
+.training-surface:focus-visible { border-radius: 4px; outline-offset: 3px; }
+.training-state-outline { outline: 2px solid var(--line); outline-offset: 3px; border-radius: 4px; }
+.training-state-outline[data-training-status="active"] { outline-color: #d67b26; }
 .target-char.current.error-current { background: #fce8e6; box-shadow: 0 0 0 2px #f1a7a0; color: #8a2018; }
 .training-feedback-error { color: #a52a20; }
 .keyboard-guide { background: var(--panel); }

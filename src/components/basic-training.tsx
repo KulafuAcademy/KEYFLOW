@@ -629,9 +629,8 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
           )}
           <div
             ref={guidedMode ? trainingSurface : undefined}
-            className={
-              guidedMode ? "training-surface" : "basic-training-target"
-            }
+            className={`${guidedMode ? "training-surface" : "basic-training-target"} training-state-outline`}
+            data-training-status={draft.status}
             role={guidedMode ? "group" : undefined}
             aria-label={
               guidedMode
