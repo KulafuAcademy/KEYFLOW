@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Activity,
   Clock3,
@@ -105,6 +112,12 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
   const draftRef = useRef(draft);
   const textarea = useRef<HTMLTextAreaElement>(null);
   const trainingSurface = useRef<HTMLDivElement>(null);
+  const processGuidedKeyRef = useRef<(typedKey: string) => void>(() => {});
+  const activateFromSpaceRef = useRef<() => void>(() => {});
+  const guidedModeRef = useRef(false);
+  const completeRef = useRef<
+    (status: "completed" | "timed-out", ms?: number) => void
+  >(() => {});
   const sessionId = useRef("");
   const audioContext = useRef<AudioContext | null>(null);
   const activeErrorTone = useRef<OscillatorNode | null>(null);
@@ -415,7 +428,7 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
       window.setTimeout(() => complete("completed", ms), 0);
     }
   };
-  const processGuidedKey = (typedKey: string) => {
+  const processGuidedKey = useCallback((typedKey: string) => {
     const current = draftRef.current;
     if (
       current.status === "paused" ||
@@ -468,8 +481,8 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
     }
     update(next);
     if (shouldCompleteTarget(current.mode, target, attempt.input))
-      window.setTimeout(() => complete("completed", ms), 0);
-  };
+      window.setTimeout(() => completeRef.current("completed", ms), 0);
+  }, [limit, playIncorrectSound, soundEnabled, target, update]);
 
   const handleGuidedKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     if (event.defaultPrevented) return;
@@ -484,6 +497,15 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
     event.preventDefault();
     processGuidedKey(typedKey);
   };
+
+  useLayoutEffect(() => {
+    completeRef.current = complete;
+  });
+  useLayoutEffect(() => {
+    processGuidedKeyRef.current = processGuidedKey;
+    activateFromSpaceRef.current = activateFromSpace;
+    guidedModeRef.current = guidedMode;
+  }, [activateFromSpace, guidedMode, processGuidedKey]);
 
   useEffect(() => {
     const handleSpacebar = (event: KeyboardEvent) => {
@@ -504,7 +526,7 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
         draftRef.current.status,
         event,
         {
-          guidedMode,
+          guidedMode: guidedModeRef.current,
           trainingSurfaceFocused: controls.some(inGuidedSurface),
           otherControlFocused: controls.some(
             (element) => isControl(element) && !isTrainingInput(element),
@@ -515,15 +537,15 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
       event.preventDefault();
       event.stopPropagation();
       if (action === "type") {
-        processGuidedKey(" ");
+        processGuidedKeyRef.current(" ");
         return;
       }
-      activateFromSpace();
+      activateFromSpaceRef.current();
     };
 
     window.addEventListener("keydown", handleSpacebar, true);
     return () => window.removeEventListener("keydown", handleSpacebar, true);
-  });
+  }, []);
 
   const chooseDifficulty = (difficulty: Difficulty) => {
     update({
