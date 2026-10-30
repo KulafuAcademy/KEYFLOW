@@ -1,6 +1,14 @@
 import { validReference, type AmplifyReference } from "./amplify";
 import type { Status } from "./metrics";
-export type Mode = "drill" | "copy" | "writing";
+export type Mode =
+  | "drill"
+  | "copy"
+  | "writing"
+  | "keyboard"
+  | "words"
+  | "sentences"
+  | "speed"
+  | "free";
 export type Session = {
   id: string;
   date: string;
@@ -12,6 +20,7 @@ export type Session = {
   errors?: number;
   mistakes?: number;
   words?: number;
+  mistypedKeys?: Record<string, number>;
   status: Status;
 };
 export type Draft = {
@@ -25,6 +34,7 @@ export const KEYS = {
   history: "keyflow.history.v1",
   drafts: "keyflow.drafts.v1",
   preferences: "keyflow.preferences.v1",
+  basicTraining: "keyflow.basic-training.v1",
 };
 let staffStorageNamespace: string | null = null;
 export function setStaffStorageNamespace(userId: string) {
@@ -80,14 +90,32 @@ export function validHistory(x: unknown): boolean {
         v &&
         typeof v.id === "string" &&
         typeof v.date === "string" &&
-        ["drill", "copy", "writing"].includes(v.mode) &&
+        [
+          "drill",
+          "copy",
+          "writing",
+          "keyboard",
+          "words",
+          "sentences",
+          "speed",
+          "free",
+        ].includes(v.mode) &&
         typeof v.title === "string" &&
         Number.isFinite(v.elapsed) &&
         v.elapsed >= 0 &&
         ["completed", "timed-out"].includes(v.status) &&
         ["wpm", "accuracy", "errors", "mistakes", "words"].every(
           (k) => v[k] === undefined || (Number.isFinite(v[k]) && v[k] >= 0),
-        ),
+        ) &&
+        (v.mistypedKeys === undefined ||
+          (typeof v.mistypedKeys === "object" &&
+            v.mistypedKeys !== null &&
+            Object.values(v.mistypedKeys).every(
+              (count) =>
+                typeof count === "number" &&
+                Number.isSafeInteger(count) &&
+                count >= 0,
+            ))),
     )
   );
 }
