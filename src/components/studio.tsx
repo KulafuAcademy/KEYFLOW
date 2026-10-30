@@ -142,6 +142,7 @@ function IconButton({
 export default function Studio() {
   const router = useRouter();
   const [loaded, setLoaded] = useState(false),
+    [publicAccess, setPublicAccess] = useState(false),
     [view, setView] = useState<View>("drill"),
     [theme, setTheme] = useState("light");
   const [history, setHistory] = useState<Session[]>([]),
@@ -217,9 +218,10 @@ export default function Studio() {
     let cancelled = false;
     void fetch("/api/staff/me", { cache: "no-store" }).then((response) => {
       if (!response.ok) throw new Error("Staff session expired");
-      return response.json() as Promise<{ id: string }>;
-    }).then(({ id }) => {
+      return response.json() as Promise<{ id: string; publicAccess?: boolean }>;
+    }).then(({ id, publicAccess: isPublic }) => {
       if (cancelled) return;
+      setPublicAccess(isPublic === true);
       setStaffStorageNamespace(id);
       const preferences = read<{ theme: string; duration: number }>(
       KEYS.preferences,
@@ -638,7 +640,7 @@ export default function Studio() {
             >
               {theme === "light" ? <Moon size={17} /> : <Sun size={17} />}
             </IconButton>
-            <a className="staff-signout" href="/staff/logout" aria-label="Sign out">SIGN OUT</a>
+            {!publicAccess && <a className="staff-signout" href="/staff/logout" aria-label="Sign out">SIGN OUT</a>}
           </div>
         </div>
       </aside>
