@@ -9,6 +9,8 @@ import {
   type Session,
 } from "../src/lib/storage";
 import {
+  basicTrainingSpaceAction,
+  basicTrainingSpaceInstruction,
   basicTypingScore,
   characterStates,
   emptyLedger,
@@ -160,6 +162,33 @@ test("guided training ignores modifiers and non-printable keys", () => {
   assert.equal(isUnmodifiedPrintableKey("a", { altKey: true }), false);
   assert.equal(isUnmodifiedPrintableKey("Backspace", {}), false);
   assert.equal(isUnmodifiedPrintableKey("ArrowLeft", {}), false);
+});
+
+test("Space action follows the current Basic Training state", () => {
+  assert.equal(basicTrainingSpaceAction("ready"), "start");
+  assert.equal(basicTrainingSpaceAction("active"), "type");
+  assert.equal(basicTrainingSpaceAction("paused"), "resume");
+  assert.equal(basicTrainingSpaceAction("completed"), "restart");
+  assert.equal(basicTrainingSpaceAction("timed-out"), "restart");
+});
+
+test("Space instructions match the requested visible labels", () => {
+  assert.equal(
+    basicTrainingSpaceInstruction("ready"),
+    "Ready: Press Space to Start",
+  );
+  assert.equal(
+    basicTrainingSpaceInstruction("paused"),
+    "Paused: Press Space to Resume",
+  );
+  assert.equal(
+    basicTrainingSpaceInstruction("completed"),
+    "Completed: Press Space to Restart",
+  );
+  assert.equal(
+    basicTrainingSpaceInstruction("active"),
+    "Typing active · Space types normally",
+  );
 });
 
 test("guided word and sentence items advance only after their final correct character", () => {

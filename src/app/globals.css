@@ -2364,6 +2364,15 @@ main:has(.basic-training) .session-code {
   font-size: 16px;
   line-height: 1.55;
 }
+.training-space-hint {
+  margin: 0;
+  padding: 4px 7px;
+  border-left: 2px solid #d67b26;
+  color: var(--text);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.3;
+}
 .basic-training-primary .keyboard-guide {
   padding: 8px 10px;
 }

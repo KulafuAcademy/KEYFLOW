@@ -80,6 +80,25 @@ export function shouldPlayIncorrectKeySound(
   return soundEnabled && !accepted && expected.length > 0;
 }
 
+export function basicTrainingSpaceAction(
+  status: BasicTrainingDraft["status"],
+): "start" | "type" | "resume" | "restart" {
+  if (status === "ready") return "start";
+  if (status === "active") return "type";
+  if (status === "paused") return "resume";
+  return "restart";
+}
+
+export function basicTrainingSpaceInstruction(
+  status: BasicTrainingDraft["status"],
+) {
+  if (status === "ready") return "Ready: Press Space to Start";
+  if (status === "paused") return "Paused: Press Space to Resume";
+  if (status === "completed") return "Completed: Press Space to Restart";
+  if (status === "timed-out") return "Time is up: Press Space to Restart";
+  return "Typing active · Space types normally";
+}
+
 export function recordGuidedKeystroke(
   input: string,
   key: string,

@@ -24,6 +24,8 @@ import {
 } from "@/lib/keyboard-fingers";
 import { KEYS, read, write, type Session } from "@/lib/storage";
 import {
+  basicTrainingSpaceAction,
+  basicTrainingSpaceInstruction,
   basicTypingScore,
   characterStates,
   emptyLedger,
@@ -101,7 +103,6 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
   const draftRef = useRef(draft);
   const textarea = useRef<HTMLTextAreaElement>(null);
   const trainingSurface = useRef<HTMLDivElement>(null);
-  const resumeButton = useRef<HTMLButtonElement>(null);
   const sessionId = useRef("");
   const audioContext = useRef<AudioContext | null>(null);
   const activeErrorTone = useRef<OscillatorNode | null>(null);
@@ -144,10 +145,6 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
   const focusPracticeSurface = useCallback(() => {
     window.setTimeout(() => {
       const current = draftRef.current;
-      if (current.status === "paused") {
-        resumeButton.current?.focus({ preventScroll: true });
-        return;
-      }
       if (
         current.mode === "keyboard" ||
         current.mode === "words" ||
@@ -309,28 +306,38 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft.status, limit, timed]);
 
-  const begin = () => {
+  const begin = useCallback(() => {
     if (draftRef.current.status === "ready") {
       clock.current.started = Date.now();
       sessionId.current = crypto.randomUUID();
       update({ ...draftRef.current, status: "active" });
     }
-  };
-  const restart = (focus = true) => {
-    clock.current = { elapsed: 0, started: null };
-    setElapsed(0);
-    sessionId.current = "";
+  }, [update]);
+  const restart = useCallback(
+    (focus = true) => {
+      clock.current = { elapsed: 0, started: null };
+      setElapsed(0);
+      sessionId.current = "";
+      const current = draftRef.current;
+      update({
+        ...current,
+        input: "",
+        elapsed: 0,
+        status: "ready",
+        ledger: emptyLedger(),
+      });
+      setIncorrectAttempt(null);
+      if (focus) focusPracticeSurface();
+    },
+    [focusPracticeSurface, update],
+  );
+  const resume = useCallback(() => {
     const current = draftRef.current;
-    update({
-      ...current,
-      input: "",
-      elapsed: 0,
-      status: "ready",
-      ledger: emptyLedger(),
-    });
-    setIncorrectAttempt(null);
-    if (focus) focusPracticeSurface();
-  };
+    if (current.status !== "paused") return;
+    clock.current = { elapsed: current.elapsed, started: Date.now() };
+    update({ ...current, status: "active" });
+    focusPracticeSurface();
+  }, [focusPracticeSurface, update]);
   const changeMode = (mode: BasicTrainingMode) => {
     if (mode === draft.mode) {
       focusPracticeSurface();
@@ -398,6 +405,7 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
     }
   };
   const handleGuidedKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.defaultPrevented) return;
     const element = event.target;
     if (
       element instanceof HTMLElement &&
@@ -465,6 +473,66 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
     if (shouldCompleteTarget(current.mode, target, attempt.input))
       window.setTimeout(() => complete("completed", ms), 0);
   };
+
+  useEffect(() => {
+    const handleSpacebar = (event: KeyboardEvent) => {
+      if (
+        event.code !== "Space" ||
+        event.repeat ||
+        event.isComposing ||
+        event.shiftKey ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.altKey
+      )
+        return;
+
+      const element = event.target instanceof HTMLElement ? event.target : null;
+      const typingInput = element?.id === "basic-typing-input";
+      const otherEditor = Boolean(
+        element?.closest("input,textarea,[contenteditable='true']") &&
+        !typingInput,
+      );
+      const button = element?.closest("button");
+      const current = draftRef.current;
+      const action = basicTrainingSpaceAction(current.status);
+
+      if (action === "type") {
+        if (button) {
+          // Space activates focused buttons by default; keep it from triggering
+          // Restart while an exercise is running.
+          event.preventDefault();
+          return;
+        }
+        if (
+          !typingInput &&
+          element !== trainingSurface.current &&
+          !otherEditor
+        ) {
+          event.preventDefault();
+          focusPracticeSurface();
+        }
+        return;
+      }
+
+      if (action === "start" && (button || otherEditor)) return;
+      if (otherEditor && action === "restart") return;
+
+      event.preventDefault();
+      if (action === "start") {
+        begin();
+        focusPracticeSurface();
+      } else if (action === "resume") {
+        resume();
+      } else {
+        restart();
+      }
+    };
+
+    window.addEventListener("keydown", handleSpacebar, true);
+    return () => window.removeEventListener("keydown", handleSpacebar, true);
+  }, [begin, focusPracticeSurface, restart, resume]);
+
   const chooseDifficulty = (difficulty: Difficulty) => {
     update({
       ...draftRef.current,
@@ -614,6 +682,13 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
                 ))}
               </div>
             </div>
+            <p
+              className="training-space-hint"
+              aria-live="polite"
+              aria-atomic="true"
+            >
+              {basicTrainingSpaceInstruction(draft.status)}
+            </p>
             {guidedMode && (
               <KeyboardGuide target={target} input={draft.input} />
             )}
@@ -632,7 +707,8 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
                 spellCheck={false}
                 autoComplete="off"
                 value={draft.input}
-                disabled={finished || draft.status === "paused"}
+                disabled={finished}
+                readOnly={draft.status === "paused"}
                 onChange={(e) => edit(e.target.value)}
                 onPaste={(e) => {
                   e.preventDefault();
@@ -798,7 +874,6 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
               </button>
               {draft.status === "active" ? (
                 <button
-                  ref={resumeButton}
                   className="secondary"
                   onClick={() => {
                     const ms = elapsedMs(clock.current, Date.now(), limit);
@@ -814,17 +889,7 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
                   <Pause size={14} /> Pause
                 </button>
               ) : draft.status === "paused" ? (
-                <button
-                  className="secondary"
-                  onClick={() => {
-                    clock.current = {
-                      elapsed: draft.elapsed,
-                      started: Date.now(),
-                    };
-                    update({ ...draftRef.current, status: "active" });
-                    focusPracticeSurface();
-                  }}
-                >
+                <button className="secondary" onClick={resume}>
                   <Play size={14} /> Resume
                 </button>
               ) : null}
