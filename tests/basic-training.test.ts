@@ -12,12 +12,14 @@ import {
   basicTypingScore,
   characterStates,
   emptyLedger,
+  isUnmodifiedPrintableKey,
   nextLessonIndex,
   recordGuidedKeystroke,
   recordTypingEdit,
   restoreBasicTrainingDraft,
   shouldAdvanceItem,
   shouldCompleteTarget,
+  shouldPlayIncorrectKeySound,
   validBasicTrainingDraft,
 } from "../src/lib/basic-training";
 import {
@@ -118,12 +120,7 @@ test("guided typing rejects wrong keys without advancing and counts every attemp
   assert.equal(first.ledger.errors, 1);
   assert.deepEqual(first.ledger.mistypedKeys, { a: 1 });
 
-  const repeated = recordGuidedKeystroke(
-    first.input,
-    "x",
-    "aB",
-    first.ledger,
-  );
+  const repeated = recordGuidedKeystroke(first.input, "x", "aB", first.ledger);
   assert.equal(repeated.input, "");
   assert.equal(repeated.ledger.errors, 2);
   assert.equal(repeated.ledger.mistypedKeys.a, 2);
@@ -137,8 +134,32 @@ test("guided typing rejects wrong keys without advancing and counts every attemp
   assert.equal(corrected.accepted, true);
   assert.equal(corrected.input, "a");
   assert.equal(corrected.ledger.errors, 2);
-  assert.equal(basicTypingScore(corrected.ledger, 60_000).accuracy, 33.33333333333333);
+  assert.equal(
+    basicTypingScore(corrected.ledger, 60_000).accuracy,
+    33.33333333333333,
+  );
   assert.equal(nextRequiredCharacter("aB", corrected.input), "B");
+});
+
+test("incorrect key sound only applies to enabled, expected-character errors", () => {
+  assert.equal(shouldPlayIncorrectKeySound(false, "a", true), true);
+  assert.equal(shouldPlayIncorrectKeySound(true, "a", true), false);
+  assert.equal(shouldPlayIncorrectKeySound(false, "", true), false);
+  assert.equal(shouldPlayIncorrectKeySound(false, "a", false), false);
+  const wrong = recordTypingEdit("", "x", "a", emptyLedger());
+  const correct = recordTypingEdit("", "a", "a", emptyLedger());
+  assert.equal(wrong.errors, 1);
+  assert.equal(correct.errors, 0);
+});
+
+test("guided training ignores modifiers and non-printable keys", () => {
+  assert.equal(isUnmodifiedPrintableKey("a", {}), true);
+  assert.equal(isUnmodifiedPrintableKey("?", { shiftKey: true }), true);
+  assert.equal(isUnmodifiedPrintableKey("a", { ctrlKey: true }), false);
+  assert.equal(isUnmodifiedPrintableKey("a", { metaKey: true }), false);
+  assert.equal(isUnmodifiedPrintableKey("a", { altKey: true }), false);
+  assert.equal(isUnmodifiedPrintableKey("Backspace", {}), false);
+  assert.equal(isUnmodifiedPrintableKey("ArrowLeft", {}), false);
 });
 
 test("guided word and sentence items advance only after their final correct character", () => {
@@ -299,6 +320,32 @@ test("basic training state and session history persist through KEYFLOW local sto
     assert.deepEqual(
       read(KEYS.basicTraining, null, validBasicTrainingDraft),
       draft,
+    );
+    assert.equal(
+      read(
+        KEYS.basicTrainingSound,
+        true,
+        (value) => typeof value === "boolean",
+      ),
+      true,
+    );
+    assert.equal(write(KEYS.basicTrainingSound, false), true);
+    assert.equal(
+      read(
+        KEYS.basicTrainingSound,
+        true,
+        (value) => typeof value === "boolean",
+      ),
+      false,
+    );
+    values.set(KEYS.basicTrainingSound, '"invalid"');
+    assert.equal(
+      read(
+        KEYS.basicTrainingSound,
+        true,
+        (value) => typeof value === "boolean",
+      ),
+      true,
     );
     const session: Session = {
       id: "basic-1",

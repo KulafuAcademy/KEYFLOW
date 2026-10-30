@@ -55,6 +55,31 @@ export const emptyLedger = (): KeystrokeLedger => ({
   mistypedKeys: {},
 });
 
+export function isUnmodifiedPrintableKey(
+  key: string,
+  modifiers: {
+    metaKey?: boolean;
+    ctrlKey?: boolean;
+    altKey?: boolean;
+    shiftKey?: boolean;
+  },
+) {
+  return (
+    !modifiers.metaKey &&
+    !modifiers.ctrlKey &&
+    !modifiers.altKey &&
+    Array.from(key).length === 1
+  );
+}
+
+export function shouldPlayIncorrectKeySound(
+  accepted: boolean,
+  expected: string,
+  soundEnabled: boolean,
+) {
+  return soundEnabled && !accepted && expected.length > 0;
+}
+
 export function recordGuidedKeystroke(
   input: string,
   key: string,
@@ -66,9 +91,10 @@ export function recordGuidedKeystroke(
     return { input, ledger, expected, accepted: false };
 
   const accepted = key === expected;
-  const mistypedKeys = accepted ? ledger.mistypedKeys : { ...ledger.mistypedKeys };
-  if (!accepted)
-    mistypedKeys[expected] = (mistypedKeys[expected] ?? 0) + 1;
+  const mistypedKeys = accepted
+    ? ledger.mistypedKeys
+    : { ...ledger.mistypedKeys };
+  if (!accepted) mistypedKeys[expected] = (mistypedKeys[expected] ?? 0) + 1;
 
   return {
     input: accepted ? input + key : input,

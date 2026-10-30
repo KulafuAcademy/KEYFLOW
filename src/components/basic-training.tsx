@@ -9,6 +9,8 @@ import {
   Play,
   RotateCcw,
   Target,
+  Volume2,
+  VolumeX,
   Zap,
 } from "lucide-react";
 import { elapsedMs, timeLabel, type Clock } from "@/lib/metrics";
@@ -31,6 +33,8 @@ import {
   restoreBasicTrainingDraft,
   shouldAdvanceItem,
   shouldCompleteTarget,
+  isUnmodifiedPrintableKey,
+  shouldPlayIncorrectKeySound,
   validBasicTrainingDraft,
   type BasicTrainingDraft,
 } from "@/lib/basic-training";
@@ -91,6 +95,7 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
   const [draft, setDraft] = useState<BasicTrainingDraft>(emptyDraft);
   const [ready, setReady] = useState(false);
   const [storageUnavailable, setStorageUnavailable] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
   const [elapsed, setElapsed] = useState(0);
   const clock = useRef<Clock>({ elapsed: 0, started: null });
   const draftRef = useRef(draft);
@@ -98,6 +103,8 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
   const trainingSurface = useRef<HTMLDivElement>(null);
   const resumeButton = useRef<HTMLButtonElement>(null);
   const sessionId = useRef("");
+  const audioContext = useRef<AudioContext | null>(null);
+  const activeErrorTone = useRef<OscillatorNode | null>(null);
   const [incorrectAttempt, setIncorrectAttempt] = useState<{
     key: string;
     expected: string;
@@ -153,16 +160,78 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
 
   useEffect(() => {
     const saved = read(KEYS.basicTraining, emptyDraft, validBasicTrainingDraft);
+    const savedSound = read(
+      KEYS.basicTrainingSound,
+      true,
+      (value) => typeof value === "boolean",
+    );
     const restored = restoreBasicTrainingDraft(saved, targetForDraft(saved));
     window.setTimeout(() => {
       clock.current = { elapsed: restored.elapsed, started: null };
       setElapsed(restored.elapsed);
+      setSoundEnabled(savedSound);
       update(restored);
       setReady(true);
       focusPracticeSurface();
     }, 0);
     // Restore the saved exercise once, then focus its input surface.
   }, [focusPracticeSurface, update]);
+
+  useEffect(
+    () => () => {
+      const context = audioContext.current;
+      audioContext.current = null;
+      activeErrorTone.current = null;
+      if (context && context.state !== "closed") void context.close();
+    },
+    [],
+  );
+
+  const playIncorrectSound = useCallback(() => {
+    if (!soundEnabled || activeErrorTone.current) return;
+    try {
+      const context = audioContext.current ?? new AudioContext();
+      audioContext.current = context;
+      if (context.state === "suspended") void context.resume().catch(() => {});
+
+      const start = context.currentTime;
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.type = "triangle";
+      oscillator.frequency.setValueAtTime(155, start);
+      oscillator.frequency.exponentialRampToValueAtTime(105, start + 0.12);
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.linearRampToValueAtTime(0.075, start + 0.008);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.13);
+      oscillator.connect(gain);
+      gain.connect(context.destination);
+      activeErrorTone.current = oscillator;
+      oscillator.onended = () => {
+        oscillator.disconnect();
+        gain.disconnect();
+        if (activeErrorTone.current === oscillator)
+          activeErrorTone.current = null;
+      };
+      oscillator.start(start);
+      oscillator.stop(start + 0.14);
+    } catch {
+      // Audio is optional; unsupported or blocked audio must not interrupt practice.
+      activeErrorTone.current = null;
+    }
+  }, [soundEnabled]);
+
+  const toggleSound = () => {
+    const next = !soundEnabled;
+    setSoundEnabled(next);
+    if (!write(KEYS.basicTrainingSound, next)) setStorageUnavailable(true);
+    if (!next && activeErrorTone.current) {
+      try {
+        activeErrorTone.current.stop();
+      } catch {
+        activeErrorTone.current = null;
+      }
+    }
+  };
 
   useEffect(() => {
     if (ready) focusPracticeSurface();
@@ -297,6 +366,7 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
       target,
       current.ledger,
     );
+    if (ledger.errors > current.ledger.errors) playIncorrectSound();
     const ms = elapsedMs(clock.current, Date.now(), limit);
     let next: BasicTrainingDraft = {
       ...current,
@@ -334,7 +404,7 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
       element.closest("button,input,textarea,select,[contenteditable='true']")
     )
       return;
-    if (event.metaKey || event.ctrlKey || event.altKey) return;
+    if (!isUnmodifiedPrintableKey(event.key, event)) return;
 
     const current = draftRef.current;
     if (
@@ -347,8 +417,6 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
       event.preventDefault();
       return;
     }
-    if (Array.from(event.key).length !== 1) return;
-
     event.preventDefault();
     if (current.status === "ready") {
       clock.current.started = Date.now();
@@ -362,6 +430,14 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
     );
     if (!attempt.accepted) {
       setIncorrectAttempt({ key: event.key, expected: attempt.expected });
+      if (
+        shouldPlayIncorrectKeySound(
+          attempt.accepted,
+          attempt.expected,
+          soundEnabled,
+        )
+      )
+        playIncorrectSound();
     } else {
       setIncorrectAttempt(null);
     }
@@ -707,6 +783,16 @@ export default function BasicTraining({ history, onSessionComplete }: Props) {
                   ))}
                 </div>
               )}
+              <button
+                className="secondary basic-training-sound-toggle"
+                type="button"
+                aria-pressed={soundEnabled}
+                aria-label={`Incorrect keystroke sound ${soundEnabled ? "on" : "off"}`}
+                onClick={toggleSound}
+              >
+                {soundEnabled ? <Volume2 size={14} /> : <VolumeX size={14} />}
+                Sound {soundEnabled ? "On" : "Off"}
+              </button>
               <button className="secondary" onClick={() => restart()}>
                 <RotateCcw size={14} /> Restart
               </button>
