@@ -181,8 +181,15 @@ export default function BasicTraining({
   const currentLessonAchievement = achievements.find(
     (achievement) => achievement.lessonId === currentLesson.id,
   );
+  const currentLessonDisplayAchievement = completedAttemptAchievement
+    ? mergeKeyboardAchievement(
+        currentLessonAchievement ? [currentLessonAchievement] : [],
+        currentLesson.id,
+        completedAttemptAchievement,
+      )[0]
+    : currentLessonAchievement;
   const currentLessonMedal = keyboardAchievementMedal(
-    currentLessonAchievement,
+    currentLessonDisplayAchievement,
   );
   const previousKeyboardLesson = adjacentKeyboardLessonIndex(
     selectedLessonIndex,
@@ -994,34 +1001,22 @@ export default function BasicTraining({
                   ` · ${currentLesson.stageTitle} · ${currentLesson.difficulty.toUpperCase()}`}
               </div>
               <h2>{title}</h2>
-              {draft.mode === "keyboard" && completedAttemptAchievement && (
-                <div className="keyboard-award-row" role="status" aria-live="polite">
-                  <span
-                    className={`keyboard-achievement-badge keyboard-achievement-${completedAttemptAchievement.medal ?? "completed"}`}
-                  >
-                    {completedAttemptAchievement.medal?.toUpperCase() ?? "COMPLETED"}
-                  </span>
-                  {completedAttemptAchievement.perfect && (
-                    <span className="keyboard-perfect-badge">★ PERFECT</span>
-                  )}
-                </div>
-              )}
-              {draft.mode === "keyboard" && currentLessonAchievement && (
+              {draft.mode === "keyboard" && currentLessonDisplayAchievement && (
                 <div
                   className="keyboard-award-row keyboard-saved-award-row"
                   role="status"
-                  aria-label={`Saved achievement for ${currentLesson.title}`}
+                  aria-label={`Achievement for ${currentLesson.title}`}
                 >
                   <span
                     className={`keyboard-achievement-badge keyboard-achievement-${currentLessonMedal ?? "completed"}`}
                   >
                     {currentLessonMedal
                       ? currentLessonMedal.toUpperCase()
-                      : keyboardAchievementWasAttempted(currentLessonAchievement)
+                      : keyboardAchievementWasAttempted(currentLessonDisplayAchievement)
                         ? "COMPLETED · NO MEDAL"
                         : "NO MEDAL"}
                   </span>
-                  {keyboardAchievementIsPerfect(currentLessonAchievement) && (
+                  {keyboardAchievementIsPerfect(currentLessonDisplayAchievement) && (
                     <span className="keyboard-perfect-badge">★ PERFECT</span>
                   )}
                 </div>
@@ -1292,24 +1287,6 @@ export default function BasicTraining({
                 accuracy · {score.correctCharacters} correct characters ·{" "}
                 {score.errors} errors in {timeLabel(elapsed)}.
               </p>
-              {completedAttemptAchievement && (
-                <div className="keyboard-award-row" aria-label="Attempt awards">
-                  {completedAttemptAchievement.medal ? (
-                    <span
-                      className={`keyboard-achievement-badge keyboard-achievement-${completedAttemptAchievement.medal}`}
-                    >
-                      {completedAttemptAchievement.medal.toUpperCase()} MEDAL
-                    </span>
-                  ) : (
-                    <span className="keyboard-achievement-badge keyboard-achievement-completed">
-                      COMPLETED · NO MEDAL
-                    </span>
-                  )}
-                  {completedAttemptAchievement.perfect && (
-                    <span className="keyboard-perfect-badge">★ PERFECT</span>
-                  )}
-                </div>
-              )}
               {finalKeyboardLessonComplete && (
                 <p className="keyboard-course-complete">
                   You completed all {keyboardLessons.length} keyboard lessons.

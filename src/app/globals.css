@@ -2513,6 +2513,10 @@ main:has(.basic-training) .session-code {
   margin-top: 5px;
   line-height: 1;
 }
+.keyboard-saved-award-row {
+  flex-wrap: nowrap;
+  width: max-content;
+}
 .keyboard-award-row .keyboard-achievement-badge {
   margin: 0;
   line-height: 1;
