@@ -105,21 +105,21 @@ export default function LearningDashboard({
       label: "BRONZE",
       count: keyboardProgress.bronze,
       percentage: keyboardProgress.percentage,
-      requirement: "85% accuracy · no WPM minimum",
+      requirement: "Accuracy ≥ 85% · No WPM minimum",
     },
     {
       id: "silver" as const,
       label: "SILVER",
       count: keyboardProgress.silver,
       percentage: keyboardProgress.silverPercentage,
-      requirement: "30 WPM · 90% accuracy",
+      requirement: "Accuracy ≥ 90% · WPM ≥ 30",
     },
     {
       id: "gold" as const,
       label: "GOLD",
       count: keyboardProgress.gold,
       percentage: keyboardProgress.goldPercentage,
-      requirement: "40 WPM · 95% accuracy",
+      requirement: "Accuracy ≥ 95% · WPM ≥ 40",
     },
   ];
   const activeChallenge = achievementTiers.find(
@@ -131,12 +131,6 @@ export default function LearningDashboard({
   const progressTiers = achievementTiers.map((tier, index) => ({
     ...tier,
     active: index === activeChallengeIndex,
-    status:
-      activeChallengeIndex < 0 || index < activeChallengeIndex
-        ? "COMPLETED"
-        : index === activeChallengeIndex
-          ? "ACTIVE CHALLENGE"
-          : "LOCKED IN ORDER",
   }));
 
   return (
@@ -183,7 +177,9 @@ export default function LearningDashboard({
               <div className="dashboard-achievement-tier-heading">
                 <strong>{tier.label}</strong>
                 <span>{tier.count} / {keyboardProgress.total} · {tier.percentage.toFixed(1)}%</span>
-                <span className="dashboard-achievement-tier-status">{tier.status}</span>
+                <span className="dashboard-achievement-tier-requirement">
+                  {tier.requirement}
+                </span>
               </div>
               <div
                 className="goal-track dashboard-achievement-track"

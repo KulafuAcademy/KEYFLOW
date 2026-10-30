@@ -2374,13 +2374,13 @@ select {
 .dashboard-achievement-tier.silver .dashboard-achievement-track span { background-color: var(--medal-silver); }
 .dashboard-achievement-tier.gold .dashboard-achievement-tier-heading > strong { color: var(--medal-gold); }
 .dashboard-achievement-tier.gold .dashboard-achievement-track span { background-color: var(--medal-gold); }
-.dashboard-achievement-tier-status {
+.dashboard-achievement-tier-requirement {
   justify-self: end;
   color: var(--muted);
-  font: 700 7px var(--font-mono), monospace;
-  letter-spacing: 0.05em;
+  font: 500 8px/1.4 var(--font-mono), monospace;
+  text-align: right;
 }
-.dashboard-achievement-tier.active .dashboard-achievement-tier-status {
+.dashboard-achievement-tier.active .dashboard-achievement-tier-requirement {
   color: var(--text);
 }
 .dashboard-achievement-track span {
@@ -2417,7 +2417,11 @@ select {
   .dashboard-achievement-summary { align-items: flex-start; flex-direction: column; gap: 10px; }
   .dashboard-achievement-counts { padding-left: 44px; }
   .dashboard-achievement-tier-heading { grid-template-columns: minmax(50px, 1fr) auto; }
-  .dashboard-achievement-tier-status { grid-column: 1 / -1; justify-self: start; }
+  .dashboard-achievement-tier-requirement {
+    grid-column: 1 / -1;
+    justify-self: start;
+    text-align: left;
+  }
 }
 @media (max-width: 380px) {
   .sidebar { padding-left: 10px; padding-right: 10px; }
