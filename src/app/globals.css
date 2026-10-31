@@ -3483,6 +3483,46 @@ main:has(.basic-training) .session-code {
   gap: 12px;
   min-width: 0;
 }
+.hunter-standalone-page {
+  min-height: 100vh;
+  padding: 0 24px 32px;
+  background: var(--bg);
+  color: var(--text);
+}
+.hunter-standalone-header {
+  display: flex;
+  max-width: 1240px;
+  min-height: 62px;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 auto;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font: 9px var(--font-mono), monospace;
+  letter-spacing: 0.12em;
+}
+.hunter-standalone-brand {
+  color: var(--text);
+  font: 800 17px var(--font-sans), sans-serif;
+  letter-spacing: -0.06em;
+}
+.hunter-standalone-content {
+  display: grid;
+  max-width: 1240px;
+  gap: 18px;
+  margin: 0 auto;
+  padding-top: 24px;
+}
+.hunter-standalone-intro h1 {
+  margin: 6px 0;
+  font-size: clamp(24px, 4vw, 34px);
+  letter-spacing: -0.06em;
+}
+.hunter-standalone-intro > p:last-child {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
 .hunter-statusbar,
 .hunter-status-indicator,
 .hunter-panel-heading,
@@ -4278,6 +4318,20 @@ main:has(.basic-training) .session-code {
   }
 }
 @media (max-width: 520px) {
+  .hunter-standalone-page {
+    padding: 0 12px 20px;
+  }
+  .hunter-standalone-header {
+    min-height: 52px;
+    font-size: 7px;
+  }
+  .hunter-standalone-brand {
+    font-size: 15px;
+  }
+  .hunter-standalone-content {
+    gap: 13px;
+    padding-top: 17px;
+  }
   .hunter-statusbar {
     align-items: flex-start;
     flex-direction: column;
