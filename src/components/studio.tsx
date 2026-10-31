@@ -23,6 +23,7 @@ import {
   Play,
   RotateCcw,
   ShieldCheck,
+  Swords,
   Sun,
   Target,
   Trash2,
@@ -41,6 +42,7 @@ import {
 import AmplifyPicker from "./amplify-picker";
 import BasicTraining from "./basic-training";
 import LearningDashboard from "./learning-dashboard";
+import TypingHunter from "./typing-hunter";
 import {
   calculateKeyboardProgress,
   validKeyboardAchievements,
@@ -82,7 +84,7 @@ const QuestionVisual = dynamic(() => import("./question-visual"), {
 });
 const writingPrompts: Prompt[] = [...prompts, ...visualQuestions];
 
-type View = Mode | "progress" | "basic";
+type View = Mode | "progress" | "basic" | "hunter";
 const labels: Record<Mode, string> = {
   drill: "Typing drill",
   copy: "Copy practice",
@@ -189,7 +191,10 @@ export default function Studio() {
     sessionId = useRef(""),
     editor = useRef<HTMLTextAreaElement>(null),
     confirmRef = useRef<HTMLButtonElement>(null);
-  const mode: Mode = view === "progress" || view === "basic" ? "drill" : view;
+  const mode: Mode =
+    view === "progress" || view === "basic" || view === "hunter"
+      ? "drill"
+      : view;
   const exercise = (mode === "copy" ? passages : drills)[
     index % (mode === "copy" ? passages.length : drills.length)
   ];
@@ -314,7 +319,8 @@ export default function Studio() {
       });
   }, [theme, duration, goalWpm, loaded, persist]);
   useEffect(() => {
-    if (loaded && view !== "progress") editor.current?.focus();
+    if (loaded && view !== "progress" && view !== "hunter")
+      editor.current?.focus();
   }, [loaded, view, index, promptId]);
   useEffect(() => {
     if (confirm) confirmRef.current?.focus();
@@ -663,18 +669,19 @@ export default function Studio() {
                 n: "01",
               },
               { id: "basic", name: "Basic Training", icon: Target, n: "02" },
+              { id: "hunter", name: "Typing Hunter", icon: Swords, n: "03" },
               {
                 id: "writing",
                 name: "Writing simulation",
                 icon: Type,
-                n: "03",
+                n: "04",
               },
-              { id: "drill", name: "Typing drill", icon: Keyboard, n: "04" },
+              { id: "drill", name: "Typing drill", icon: Keyboard, n: "05" },
               {
                 id: "copy",
                 name: "Copy practice",
                 icon: BookOpen,
-                n: "05",
+                n: "06",
               },
             ] as const
           ).map((item) => (
@@ -733,7 +740,9 @@ export default function Studio() {
                 ? "Learning dashboard"
                 : view === "basic"
                   ? "Basic Training"
-                  : labels[mode]}
+                  : view === "hunter"
+                    ? "Typing Hunter"
+                    : labels[mode]}
             </strong>
           </div>
           <span className="topbar-right">
@@ -750,14 +759,18 @@ export default function Studio() {
                   ? "YOUR LEARNING / YOUR RECORD"
                   : view === "basic"
                     ? "FOUNDATIONS / BUILD YOUR FLOW"
-                    : "PURPOSEFUL PRACTICE / REAL PROGRESS"}
+                    : view === "hunter"
+                      ? "ASHFALL RIDGE / TYPE TO STRIKE"
+                      : "PURPOSEFUL PRACTICE / REAL PROGRESS"}
               </div>
               <h1>
                 {view === "progress"
                   ? "Learning dashboard"
                   : view === "basic"
                     ? "Basic Training"
-                    : labels[mode]}
+                    : view === "hunter"
+                      ? "Typing Hunter"
+                      : labels[mode]}
                 <span className="heading-dot">.</span>
               </h1>
               <p>
@@ -765,7 +778,9 @@ export default function Studio() {
                   ? "Your typing speed, consistency, and completed practice at a glance."
                   : view === "basic"
                     ? "Start with the keyboard, then build toward confident English typing."
-                    : descriptions[mode]}
+                    : view === "hunter"
+                      ? "Read the monster. Strike with your fingers. Survive the counterattack."
+                      : descriptions[mode]}
               </p>
             </div>
             <div className="session-code">
@@ -776,9 +791,11 @@ export default function Studio() {
                 <strong>
                   {view === "progress"
                     ? "LOCAL / THIS DEVICE"
-                    : remoteTrack
-                      ? `IELTS / ${trackLabel(remoteTrack).toUpperCase()}`
-                      : "IELTS / ACADEMIC"}
+                    : view === "hunter"
+                      ? "COMBAT / THIS DEVICE"
+                      : remoteTrack
+                        ? `IELTS / ${trackLabel(remoteTrack).toUpperCase()}`
+                        : "IELTS / ACADEMIC"}
                 </strong>
               </span>
             </div>
@@ -789,7 +806,9 @@ export default function Studio() {
               and drafts may not persist after you close this tab.
             </div>
           )}
-          {view === "basic" ? (
+          {view === "hunter" ? (
+            <TypingHunter />
+          ) : view === "basic" ? (
             <BasicTraining
               history={history}
               onSessionComplete={recordBasicSession}

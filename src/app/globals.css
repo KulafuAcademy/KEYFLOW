@@ -16,6 +16,14 @@
   --medal-gold: #8a6500;
   --perfect: #674a91;
   --sidebar: #fafbf8;
+  --hunter-accent: #b7562d;
+  --hunter-accent-soft: #f5e5dc;
+  --hunter-danger: #a63b34;
+  --hunter-monster-light: #793d32;
+  --hunter-monster-dark: #33201f;
+  --hunter-belly-light: #b66d42;
+  --hunter-belly-dark: #70402e;
+  --hunter-glow: rgba(207, 94, 45, 0.22);
   color-scheme: light;
 }
 :root[data-theme="dark"] {
@@ -35,6 +43,14 @@
   --medal-gold: #f1cc65;
   --perfect: #c5a8f3;
   --sidebar: #171815;
+  --hunter-accent: #ed9a67;
+  --hunter-accent-soft: #392720;
+  --hunter-danger: #ee746a;
+  --hunter-monster-light: #a85c49;
+  --hunter-monster-dark: #482c2b;
+  --hunter-belly-light: #d08a58;
+  --hunter-belly-dark: #805039;
+  --hunter-glow: rgba(237, 112, 61, 0.28);
   color-scheme: dark;
 }
 * {
@@ -3460,4 +3476,865 @@ main:has(.basic-training) .session-code {
 .staff-signout:focus-visible {
   color: var(--text);
   text-decoration: underline;
+}
+/* Typing Hunter: compact, keyboard-first monster encounter. */
+.typing-hunter {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.hunter-statusbar,
+.hunter-status-indicator,
+.hunter-panel-heading,
+.hunter-health-label,
+.hunter-command-heading,
+.hunter-command-meta,
+.hunter-input-row,
+.hunter-command-footer,
+.hunter-monster-caption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.hunter-statusbar {
+  min-height: 30px;
+  padding: 0 2px;
+  color: var(--muted);
+  font:
+    9px var(--font-mono),
+    monospace;
+  letter-spacing: 0.09em;
+}
+.hunter-status-indicator {
+  justify-content: flex-start;
+  gap: 8px;
+  color: var(--text);
+}
+.hunter-status-indicator i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--hunter-accent);
+  box-shadow: 0 0 10px var(--hunter-glow);
+}
+.hunter-round-label b,
+.hunter-command-footer b {
+  padding: 0 4px;
+  color: var(--hunter-accent);
+}
+.hunter-battle-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(285px, 0.8fr);
+  gap: 12px;
+  min-width: 0;
+}
+.hunter-arena {
+  min-width: 0;
+  padding: 17px 18px 12px;
+}
+.hunter-arena-topline {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 13px;
+}
+.hunter-arena-topline h2 {
+  margin-top: 5px;
+  font-size: 18px;
+  font-weight: 650;
+  letter-spacing: -0.4px;
+}
+.hunter-arena-topline h2 span {
+  margin-left: 5px;
+  color: var(--muted);
+  font:
+    9px var(--font-mono),
+    monospace;
+  letter-spacing: 0.05em;
+  vertical-align: 2px;
+}
+.hunter-monster-state {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font:
+    8px var(--font-mono),
+    monospace;
+  letter-spacing: 0.08em;
+}
+.hunter-monster-state-monster-charge,
+.hunter-monster-state-monster-attack {
+  border-color: color-mix(in srgb, var(--hunter-danger), var(--line) 45%);
+  color: var(--hunter-danger);
+}
+.hunter-monster-state-victory {
+  border-color: var(--success);
+  color: var(--success);
+}
+.hunter-health {
+  min-width: 0;
+}
+.hunter-health-label {
+  margin-bottom: 5px;
+  color: var(--muted);
+  font:
+    8px var(--font-mono),
+    monospace;
+  letter-spacing: 0.1em;
+}
+.hunter-health-label strong {
+  color: var(--text);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.hunter-health-track,
+.hunter-sequence-progress {
+  overflow: hidden;
+  height: 7px;
+  border-radius: 2px;
+  background: var(--soft);
+}
+.hunter-health-track > span,
+.hunter-sequence-progress > span {
+  display: block;
+  height: 100%;
+  transition: width 260ms ease;
+}
+.hunter-health-monster .hunter-health-track > span {
+  background: var(--hunter-danger);
+}
+.hunter-health-player .hunter-health-track > span {
+  background: var(--success);
+}
+.hunter-monster-stage {
+  position: relative;
+  display: grid;
+  min-height: 285px;
+  place-items: center;
+  overflow: hidden;
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  background:
+    radial-gradient(ellipse at 50% 78%, var(--hunter-glow), transparent 48%),
+    linear-gradient(
+      180deg,
+      transparent 40%,
+      color-mix(in srgb, var(--soft), transparent 14%)
+    );
+  isolation: isolate;
+}
+.hunter-stage-grid {
+  position: absolute;
+  z-index: -1;
+  inset: 40% -10% -60%;
+  opacity: 0.36;
+  background-image:
+    linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size: 28px 28px;
+  transform: perspective(120px) rotateX(50deg);
+  transform-origin: top center;
+  mask-image: linear-gradient(transparent, #000 18%);
+}
+.hunter-stage-glow {
+  position: absolute;
+  bottom: 21px;
+  width: 180px;
+  height: 35px;
+  border-radius: 50%;
+  background: var(--hunter-glow);
+  filter: blur(15px);
+}
+.hunter-monster {
+  z-index: 1;
+  width: min(50%, 270px);
+  min-width: 180px;
+  overflow: visible;
+  filter: drop-shadow(0 12px 12px rgba(0, 0, 0, 0.22));
+  transform-origin: 50% 85%;
+}
+.monster-shadow {
+  fill: rgba(0, 0, 0, 0.2);
+}
+.monster-horn,
+.monster-claw,
+.monster-teeth {
+  fill: none;
+  stroke: var(--text);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 8;
+}
+.monster-horn {
+  fill: color-mix(in srgb, var(--text), transparent 8%);
+  stroke-width: 3;
+}
+.monster-body {
+  stroke: color-mix(in srgb, var(--hunter-monster-dark), var(--text) 18%);
+  stroke-width: 4;
+}
+.monster-belly {
+  opacity: 0.95;
+}
+.monster-arm,
+.monster-leg {
+  fill: none;
+  stroke: var(--hunter-monster-dark);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 21;
+}
+.monster-claw {
+  stroke: var(--hunter-accent);
+  stroke-width: 5;
+}
+.monster-face {
+  fill: var(--hunter-monster-dark);
+  stroke: color-mix(in srgb, var(--hunter-monster-light), #fff 10%);
+  stroke-width: 3;
+}
+.monster-brow,
+.monster-marking {
+  fill: none;
+  stroke: var(--hunter-monster-light);
+  stroke-linecap: round;
+  stroke-width: 7;
+}
+.monster-eye {
+  fill: none;
+  stroke: #ffd88c;
+  stroke-linecap: round;
+  stroke-width: 7;
+  filter: drop-shadow(0 0 5px var(--hunter-accent));
+}
+.monster-glow {
+  fill: none;
+  stroke: var(--hunter-accent);
+  stroke-linecap: round;
+  stroke-width: 5;
+}
+.monster-teeth {
+  stroke: #f4e6d3;
+  stroke-width: 4;
+}
+.hunter-rune {
+  position: absolute;
+  color: var(--hunter-accent);
+  font-size: 27px;
+  opacity: 0.32;
+}
+.hunter-rune-one {
+  top: 29%;
+  left: 18%;
+}
+.hunter-rune-two {
+  right: 18%;
+  bottom: 28%;
+}
+.hunter-hit-number {
+  position: absolute;
+  z-index: 2;
+  top: 27%;
+  left: 67%;
+  color: var(--hunter-accent);
+  font:
+    800 26px var(--font-mono),
+    monospace;
+  text-shadow: 0 2px 12px var(--hunter-glow);
+  animation: hunter-hit-rise 650ms ease-out both;
+}
+.hunter-incoming {
+  top: 35%;
+  left: 25%;
+  color: var(--hunter-danger);
+}
+.hunter-end-stamp {
+  position: absolute;
+  z-index: 3;
+  padding: 10px 15px;
+  border: 1px solid currentColor;
+  background: color-mix(in srgb, var(--panel), transparent 8%);
+  color: var(--hunter-accent);
+  font:
+    800 12px var(--font-mono),
+    monospace;
+  letter-spacing: 0.16em;
+  transform: rotate(-5deg);
+}
+.hunter-end-defeat {
+  color: var(--hunter-danger);
+}
+.hunter-monster-idle {
+  animation: hunter-idle 2.6s ease-in-out infinite;
+}
+.hunter-monster-hurt {
+  animation: hunter-recoil 520ms ease-out both;
+}
+.hunter-monster-charge {
+  animation: hunter-charge 660ms ease-in-out infinite alternate;
+}
+.hunter-monster-strike {
+  animation: hunter-strike 480ms ease-in both;
+}
+.hunter-monster-down {
+  opacity: 0.45;
+  transform: rotate(79deg) translate(12px, 24px) scale(0.76);
+  transition:
+    transform 450ms ease,
+    opacity 450ms ease;
+}
+.hunter-stage-impact .hunter-stage-glow {
+  animation: hunter-flash 420ms ease-out;
+}
+.hunter-stage-monster-attack .hunter-stage-glow,
+.hunter-stage-monster-charge .hunter-stage-glow {
+  background: color-mix(in srgb, var(--hunter-danger), transparent 30%);
+  animation: hunter-threat 500ms ease-in-out infinite alternate;
+}
+.monster-fire {
+  fill: #ffd88c;
+  stroke: var(--hunter-danger);
+  stroke-linejoin: round;
+  stroke-width: 2;
+  filter: drop-shadow(0 0 10px var(--hunter-accent));
+  transform-origin: 50% 50%;
+  animation: hunter-fire-burst 620ms ease-out both;
+}
+.hunter-monster-roar {
+  animation: hunter-roar 820ms ease-in-out both;
+}
+.hunter-stage-monster-roar .hunter-stage-glow {
+  background: color-mix(in srgb, var(--hunter-accent), transparent 28%);
+  animation: hunter-threat 280ms ease-in-out infinite alternate;
+}
+.hunter-multi-hit-label {
+  position: absolute;
+  z-index: 2;
+  top: 20%;
+  right: 13%;
+  color: var(--text);
+  font:
+    800 9px var(--font-mono),
+    monospace;
+  letter-spacing: 0.1em;
+  animation: hunter-hit-rise 650ms ease-out both;
+}
+.hunter-slash-effects {
+  position: absolute;
+  z-index: 2;
+  inset: 14% 25% 23%;
+  pointer-events: none;
+}
+.hunter-slash-effects i {
+  position: absolute;
+  top: 44%;
+  left: 48%;
+  width: 70px;
+  height: 3px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, transparent, #fff3d2 46%, var(--hunter-accent));
+  box-shadow: 0 0 12px var(--hunter-accent);
+  transform: rotate(calc((var(--slash-index, 0) * 37deg) - 35deg)) scaleX(0.2);
+  transform-origin: center;
+  animation: hunter-slash 460ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.hunter-slash-effects i:nth-child(2) { --slash-index: 1; }
+.hunter-slash-effects i:nth-child(3) { --slash-index: 2; }
+.hunter-slash-effects i:nth-child(4) { --slash-index: 3; }
+.hunter-slash-effects i:nth-child(5) { --slash-index: 4; }
+.hunter-slash-effects i:nth-child(6) { --slash-index: 5; }
+.hunter-slash-effects i:nth-child(7) { --slash-index: 6; }
+.hunter-slash-effects i:nth-child(8) { --slash-index: 7; }
+.hunter-slash-effects i:nth-child(9) { --slash-index: 8; }
+.hunter-slash-effects i:nth-child(10) { --slash-index: 9; }
+.hunter-slash-effects i:nth-child(11) { --slash-index: 10; }
+.hunter-slash-effects i:nth-child(12) { --slash-index: 11; }
+.hunter-monster-caption {
+  gap: 10px;
+  margin-top: 9px;
+  color: var(--muted);
+  font:
+    8px var(--font-mono),
+    monospace;
+  letter-spacing: 0.07em;
+}
+.hunter-monster-caption > span:first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.hunter-legend-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--hunter-danger);
+}
+.hunter-side-column {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+}
+.hunter-player-panel,
+.hunter-attacks-panel {
+  padding: 14px;
+}
+.hunter-panel-heading {
+  gap: 8px;
+  margin-bottom: 15px;
+  color: var(--muted);
+  font:
+    8px var(--font-mono),
+    monospace;
+  letter-spacing: 0.08em;
+}
+.hunter-panel-heading > span:first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--text);
+}
+.hunter-panel-heading svg {
+  color: var(--hunter-accent);
+}
+.hunter-field-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  margin-top: 13px;
+  border: 1px solid var(--line);
+  background: var(--line);
+}
+.hunter-field-stats > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 9px;
+  background: var(--panel);
+}
+.hunter-field-stats span,
+.hunter-field-stats strong small {
+  color: var(--muted);
+  font:
+    7px var(--font-mono),
+    monospace;
+  letter-spacing: 0.08em;
+}
+.hunter-field-stats strong {
+  font:
+    600 16px var(--font-mono),
+    monospace;
+  font-variant-numeric: tabular-nums;
+}
+.hunter-field-stats strong small {
+  margin-left: 3px;
+}
+.hunter-attack-list {
+  display: grid;
+  gap: 6px;
+}
+.hunter-attack-card {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  padding: 9px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+.hunter-attack-card:not(:disabled):hover,
+.hunter-attack-card.selected {
+  border-color: var(--hunter-accent);
+  background: color-mix(in srgb, var(--hunter-accent-soft), transparent 45%);
+}
+.hunter-attack-card.locked {
+  opacity: 0.52;
+}
+.hunter-attack-icon {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  place-items: center;
+  border: 1px solid var(--line);
+  color: var(--hunter-accent);
+}
+.hunter-attack-copy {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+.hunter-attack-copy strong {
+  overflow: hidden;
+  font-size: 10px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hunter-attack-copy small,
+.hunter-attack-unlock {
+  color: var(--muted);
+  font:
+    7px var(--font-mono),
+    monospace;
+  letter-spacing: 0.05em;
+}
+.hunter-attack-copy small b {
+  color: var(--hunter-accent);
+}
+.hunter-attack-unlock {
+  flex: 0 0 auto;
+  margin-left: auto;
+  text-align: right;
+}
+.hunter-attack-card.selected .hunter-attack-unlock {
+  color: var(--hunter-accent);
+}
+.hunter-unlock-note {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.5;
+}
+.hunter-command-panel {
+  padding: 15px 17px 11px;
+  transition: border-color 120ms ease;
+}
+.hunter-command-error {
+  border-color: var(--hunter-danger);
+}
+.hunter-command-heading {
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.hunter-command-heading h3 {
+  margin-top: 4px;
+  font-size: 14px;
+  font-weight: 650;
+}
+.hunter-command-meta {
+  justify-content: flex-end;
+  gap: 12px;
+  color: var(--muted);
+  font:
+    8px var(--font-mono),
+    monospace;
+  letter-spacing: 0.08em;
+}
+.hunter-sequence-wrap {
+  display: flex;
+  min-height: 52px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+}
+.hunter-sequence-target {
+  overflow-x: auto;
+  min-width: 0;
+  scrollbar-width: thin;
+}
+.hunter-sequence {
+  display: inline-flex;
+  gap: clamp(3px, 1vw, 7px);
+  white-space: pre;
+  font:
+    600 clamp(17px, 2.3vw, 25px) var(--font-mono),
+    monospace;
+  letter-spacing: 0.08em;
+}
+.hunter-character {
+  min-width: 0.65em;
+  color: var(--muted);
+  transition: color 100ms ease;
+}
+.hunter-character-typed {
+  color: var(--success);
+}
+.hunter-character-next {
+  color: var(--hunter-accent);
+  text-decoration: underline;
+  text-underline-offset: 5px;
+}
+.hunter-sequence-count {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font:
+    9px var(--font-mono),
+    monospace;
+  font-variant-numeric: tabular-nums;
+}
+.hunter-sequence-progress {
+  height: 3px;
+  margin-top: 6px;
+}
+.hunter-sequence-progress > span {
+  background: var(--hunter-accent);
+}
+.hunter-input-row {
+  gap: 9px;
+  margin-top: 11px;
+}
+.hunter-input-frame {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  border: 1px solid var(--line);
+  background: var(--panel);
+}
+.hunter-input-frame:focus-within {
+  border-color: var(--hunter-accent);
+  box-shadow: 0 0 0 2px var(--hunter-glow);
+}
+.hunter-input-frame input {
+  width: 100%;
+  min-width: 0;
+  height: 39px;
+  padding: 0 10px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font:
+    11px var(--font-mono),
+    monospace;
+}
+.hunter-input-frame input::placeholder {
+  color: var(--muted);
+  opacity: 0.8;
+}
+.hunter-input-frame input:disabled {
+  opacity: 0.72;
+}
+.hunter-input-kbd {
+  padding: 0 10px;
+  color: var(--muted);
+}
+.hunter-primary-action,
+.hunter-secondary-action {
+  display: inline-flex;
+  min-height: 40px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 13px;
+  border: 1px solid var(--text);
+  background: var(--text);
+  color: var(--bg);
+  font-size: 10px;
+  font-weight: 600;
+}
+.hunter-secondary-action {
+  border-color: var(--line);
+  background: transparent;
+  color: var(--text);
+}
+.hunter-primary-action:not(:disabled):hover {
+  border-color: var(--hunter-accent);
+  background: var(--hunter-accent);
+  color: #fff;
+}
+.hunter-wait-action {
+  border-color: var(--line);
+  background: var(--soft);
+  color: var(--muted);
+}
+.hunter-command-footer {
+  gap: 10px;
+  margin-top: 9px;
+  color: var(--muted);
+  font:
+    8px var(--font-mono),
+    monospace;
+  letter-spacing: 0.03em;
+}
+.hunter-combat-message {
+  overflow: hidden;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hunter-command-footer > span:last-child {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+}
+.hunter-performance-note {
+  color: var(--muted);
+  font-size: 9px;
+}
+@keyframes hunter-idle {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-5px) scale(1.01);
+  }
+}
+@keyframes hunter-recoil {
+  0% {
+    transform: translateX(0) rotate(0);
+    filter: brightness(1);
+  }
+  35% {
+    transform: translateX(-16px) rotate(-7deg);
+    filter: brightness(1.8);
+  }
+  100% {
+    transform: translateX(0) rotate(0);
+    filter: brightness(1);
+  }
+}
+@keyframes hunter-roar {
+  0%, 100% { transform: translateY(0) scale(1); }
+  28% { transform: translateY(-9px) scale(1.08); filter: brightness(1.5); }
+  62% { transform: translateY(1px) scale(0.98); }
+}
+@keyframes hunter-fire-burst {
+  0% { opacity: 0; transform: scale(0.35) translateY(14px); }
+  25% { opacity: 1; }
+  100% { opacity: 0.15; transform: scale(1.25) translateY(-4px); }
+}
+@keyframes hunter-slash {
+  0% { opacity: 0; transform: rotate(calc((var(--slash-index, 0) * 37deg) - 35deg)) scaleX(0.15); }
+  24% { opacity: 1; }
+  100% { opacity: 0; transform: rotate(calc((var(--slash-index, 0) * 37deg) - 35deg)) scaleX(1.15); }
+}
+@keyframes hunter-charge {
+  from {
+    transform: translateX(0) scale(1);
+  }
+  to {
+    transform: translateX(6px) scale(1.035);
+  }
+}
+@keyframes hunter-strike {
+  0% {
+    transform: translateX(0) scale(1);
+  }
+  60% {
+    transform: translateX(-26px) scale(1.08);
+  }
+  100% {
+    transform: translateX(0) scale(1);
+  }
+}
+@keyframes hunter-hit-rise {
+  0% {
+    transform: translateY(10px) scale(0.85);
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-20px) scale(1.08);
+    opacity: 0;
+  }
+}
+@keyframes hunter-flash {
+  50% {
+    opacity: 1;
+    transform: scaleX(1.35);
+  }
+}
+@keyframes hunter-threat {
+  to {
+    opacity: 0.8;
+    transform: scale(1.15);
+  }
+}
+@media (max-width: 960px) {
+  .hunter-battle-grid {
+    grid-template-columns: minmax(0, 1.2fr) minmax(255px, 0.85fr);
+  }
+  .hunter-monster-stage {
+    min-height: 250px;
+  }
+}
+@media (max-width: 760px) {
+  .hunter-battle-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .hunter-side-column {
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+    align-items: stretch;
+  }
+  .hunter-monster-stage {
+    min-height: 300px;
+  }
+}
+@media (max-width: 520px) {
+  .hunter-statusbar {
+    align-items: flex-start;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    padding: 3px 1px 8px;
+  }
+  .hunter-arena {
+    padding: 12px;
+  }
+  .hunter-arena-topline h2 {
+    font-size: 16px;
+  }
+  .hunter-monster-stage {
+    min-height: 240px;
+  }
+  .hunter-monster {
+    width: 64%;
+    min-width: 155px;
+  }
+  .hunter-monster-caption {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .hunter-side-column {
+    grid-template-columns: 1fr;
+  }
+  .hunter-player-panel,
+  .hunter-attacks-panel {
+    padding: 12px;
+  }
+  .hunter-command-panel {
+    padding: 12px;
+  }
+  .hunter-input-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .hunter-primary-action,
+  .hunter-secondary-action {
+    width: 100%;
+  }
+  .hunter-command-footer {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hunter-monster,
+  .hunter-monster-roar,
+  .monster-fire,
+  .hunter-stage-glow,
+  .hunter-hit-number,
+  .hunter-slash-effects i {
+    animation: none !important;
+    transition: none !important;
+  }
 }
