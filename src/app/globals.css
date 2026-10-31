@@ -4154,7 +4154,7 @@ main:has(.basic-training) .session-code {
   color: var(--muted);
   opacity: 0.8;
 }
-.hunter-input-frame input:disabled {
+.hunter-input-frame input[aria-disabled="true"] {
   opacity: 0.72;
 }
 .hunter-input-kbd {

@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   Activity,
   Flame,
@@ -223,7 +229,9 @@ export default function TypingHunter() {
   const active = phase === "player-turn";
 
   const focusInput = useCallback(() => {
-    requestAnimationFrame(() => inputRef.current?.focus());
+    // Keep the command surface focusable for the whole encounter. It becomes
+    // read-only during monster animations, so changing turns never blurs it.
+    inputRef.current?.focus({ preventScroll: true });
   }, []);
 
   const resetAttempt = useCallback(() => {
@@ -251,7 +259,8 @@ export default function TypingHunter() {
     setMessage("Cindermaw roars. Find the opening and strike.");
     resetAttempt();
     setPhase("monster-roar");
-  }, [resetAttempt]);
+    focusInput();
+  }, [focusInput, resetAttempt]);
 
   useEffect(() => {
     if (!active || attemptStartedAt.current === null) return;
@@ -314,6 +323,13 @@ export default function TypingHunter() {
       return () => window.clearTimeout(timer);
     }
   }, [phase, pendingDamage, pendingCounter, focusInput, resetAttempt]);
+
+  // This runs after React has committed the active/read-only state to the DOM.
+  // It is a fallback for browsers that move focus while an attack animation is
+  // running; startBattle also focuses synchronously within the user's click.
+  useLayoutEffect(() => {
+    if (active) inputRef.current?.focus({ preventScroll: true });
+  }, [active]);
 
   function chooseAttack(next: HunterAttack) {
     if (!available.some((item) => item.id === next.id) || !active) return;
@@ -639,7 +655,8 @@ export default function TypingHunter() {
               onChange={() => undefined}
               onKeyDown={onKeyDown}
               onPaste={(event) => event.preventDefault()}
-              disabled={!active}
+              readOnly={!active}
+              aria-disabled={!active}
               aria-label={`Type ${attack.name} sequence`}
               placeholder={
                 phase === "ready"
