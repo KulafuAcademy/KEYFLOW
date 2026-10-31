@@ -289,6 +289,12 @@ export default function TypingHunter() {
     resetAttempt();
     setPhase("monster-roar");
     focusInput();
+    window.requestAnimationFrame(() => {
+      const arena = inputRef.current?.closest(".typing-hunter")?.querySelector(".hunter-arena");
+      if (!arena) return;
+      const top = arena.getBoundingClientRect().top + window.scrollY - 12;
+      window.scrollTo({ top: Math.max(0, top), behavior: "auto" });
+    });
   }, [focusInput, resetAttempt]);
 
   useEffect(() => {
