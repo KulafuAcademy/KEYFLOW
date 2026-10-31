@@ -21,6 +21,7 @@ import {
   calculateCounterDamage,
   calculateHunterDamage,
   calculateHunterMetrics,
+  calculateHunterStrikeDuration,
   hunterAttacks,
   type HunterAttack,
   type HunterMetrics,
@@ -127,6 +128,34 @@ function Monster({ phase }: { phase: BattlePhase }) {
       )}
       <path className="monster-teeth" d="m135 145 8 8 7-8 10 9 10-9 7 8 8-8" />
       <path className="monster-marking" d="m145 169 8 8 8-8 8 8 8-8" />
+    </svg>
+  );
+}
+
+function Hunter({ phase, hits }: { phase: BattlePhase; hits: number }) {
+  return (
+    <svg
+      className={`hunter-fighter hunter-fighter-${phase}${phase === "impact" && hits > 1 ? " hunter-fighter-combo" : ""}${phase === "impact" ? ` hunter-fighter-impact-${hits}` : ""}`}
+      viewBox="0 0 240 280"
+      role="img"
+      aria-label={`Hunter ${phase === "impact" ? "slashes Cindermaw" : phase === "monster-attack" || phase === "defeat" ? "recoils" : phase === "victory" ? "wins the encounter" : "faces Cindermaw"}`}
+    >
+      <ellipse className="fighter-shadow" cx="116" cy="257" rx="76" ry="12" />
+      <path className="fighter-cloak" d="m88 113-28 91 34 38 51-17 17-97z" />
+      <path className="fighter-leg" d="m92 205-18 35 39 6 13-36m9-4 9 39 39-2-22-44" />
+      <path className="fighter-boot" d="m75 238-7 13 48 3 2-10m31-1 2 12 48-3-8-12" />
+      <path className="fighter-body" d="m88 109 26-17 34 7 20 29-13 74-65 3-19-65z" />
+      <path className="fighter-belt" d="m83 181 77-2-3 15-69 4z" />
+      <path className="fighter-arm" d="m95 120-30 24 11 33 23-14 12-29m48-17 24 14 27-2 9 12-41 9-28-10" />
+      <path className="fighter-glove" d="m188 151 15-4 9 8-7 10-18-3z" />
+      <path className="fighter-neck" d="m111 91 2 22 27 5 7-21z" />
+      <path className="fighter-face" d="m96 53 14-27 43 9 15 30-6 38-23 19-35-13-13-29z" />
+      <path className="fighter-hair" d="m94 69-5-28 17-24 47 4 21 30-14 14-12-19-27 9-12 26z" />
+      <path className="fighter-band" d="m95 59 65-10 3 10-65 12z" />
+      <path className="fighter-eye" d="m111 75 10-1m18-3 9-2" />
+      <path className="fighter-sword" d="m199 151 34-7-27 15-13 2z" />
+      <path className="fighter-sword-edge" d="m206 153 25-8" />
+      <path className="fighter-hilt" d="m188 145 9 12-9 8m-5-18 15 14" />
     </svg>
   );
 }
@@ -284,6 +313,7 @@ export default function TypingHunter() {
       return () => window.clearTimeout(timer);
     }
     if (phase === "impact") {
+      const strikeDuration = calculateHunterStrikeDuration(pendingHits);
       const timer = window.setTimeout(() => {
         const nextHp = Math.max(0, monsterHpRef.current - pendingDamage);
         monsterHpRef.current = nextHp;
@@ -296,7 +326,7 @@ export default function TypingHunter() {
           setMessage("Cindermaw recoils, then gathers heat in its jaws.");
           setPhase("monster-charge");
         }
-      }, 650);
+      }, strikeDuration);
       return () => window.clearTimeout(timer);
     }
     if (phase === "monster-charge") {
@@ -322,7 +352,7 @@ export default function TypingHunter() {
       }, 600);
       return () => window.clearTimeout(timer);
     }
-  }, [phase, pendingDamage, pendingCounter, focusInput, resetAttempt]);
+  }, [phase, pendingDamage, pendingHits, pendingCounter, focusInput, resetAttempt]);
 
   // This runs after React has committed the active/read-only state to the DOM.
   // It is a fallback for browsers that move focus while an attack animation is
@@ -458,18 +488,28 @@ export default function TypingHunter() {
             </div>
           </div>
 
-          <HealthBar
-            label="CINDERMAW"
-            value={monsterHp}
-            maximum={MONSTER_HP}
-            type="monster"
-          />
+          <div className="hunter-health-row">
+            <HealthBar
+              label="HUNTER · VITALITY"
+              value={playerHp}
+              maximum={PLAYER_HP}
+              type="player"
+            />
+            <HealthBar
+              label="CINDERMAW · HP"
+              value={monsterHp}
+              maximum={MONSTER_HP}
+              type="monster"
+            />
+          </div>
 
-          <div className={`hunter-monster-stage hunter-stage-${phase}`}>
+          <div className={`hunter-monster-stage hunter-stage-${phase}${phase === "impact" ? ` hunter-stage-impact-${pendingHits}` : ""}`}>
             <div className="hunter-stage-grid" />
             <div className="hunter-stage-glow" />
             <div className="hunter-rune hunter-rune-one">ᚠ</div>
             <div className="hunter-rune hunter-rune-two">ᚱ</div>
+            <Hunter phase={phase} hits={pendingHits} />
+            <div className="hunter-clash-mark" aria-hidden="true">VS</div>
             <Monster phase={phase} />
             {phase === "impact" && (
               <>
@@ -483,7 +523,7 @@ export default function TypingHunter() {
                   {Array.from(
                     { length: Math.min(pendingHits, 12) },
                     (_, index) => (
-                      <i key={`${pendingHits}-${index}`} />
+                      <i key={`${pendingHits}-${index}`} style={{ animationDelay: `${index * 140}ms` }} />
                     ),
                   )}
                 </span>
@@ -509,107 +549,6 @@ export default function TypingHunter() {
           </div>
         </section>
 
-        <aside className="hunter-side-column">
-          <section
-            className="panel hunter-player-panel"
-            aria-label="Hunter status"
-          >
-            <div className="hunter-panel-heading">
-              <span>
-                <Shield size={15} /> HUNTER STATUS
-              </span>
-              <span>RANK 01</span>
-            </div>
-            <HealthBar
-              label="VITALITY"
-              value={playerHp}
-              maximum={PLAYER_HP}
-              type="player"
-            />
-            <div className="hunter-field-stats">
-              <div>
-                <span>ATTACK SPEED</span>
-                <strong>
-                  {liveMetrics.wpm.toFixed(1)} <small>WPM</small>
-                </strong>
-              </div>
-              <div>
-                <span>SEQUENCE ACC.</span>
-                <strong>
-                  {liveMetrics.accuracy.toFixed(1)}
-                  <small>%</small>
-                </strong>
-              </div>
-              <div>
-                <span>ERRORS</span>
-                <strong>{errors.toString().padStart(2, "0")}</strong>
-              </div>
-              <div>
-                <span>COMBOS</span>
-                <strong>{completedAttacks.toString().padStart(2, "0")}</strong>
-              </div>
-            </div>
-          </section>
-
-          <section
-            className="panel hunter-attacks-panel"
-            aria-label="Combat techniques"
-          >
-            <div className="hunter-panel-heading">
-              <span>
-                <Swords size={15} /> COMBAT TECHNIQUES
-              </span>
-              <span>
-                {available.length} / {hunterAttacks.length} OPEN
-              </span>
-            </div>
-            <div className="hunter-attack-list">
-              {hunterAttacks.map((item) => {
-                const unlocked = available.some(
-                  (entry) => entry.id === item.id,
-                );
-                return (
-                  <button
-                    key={item.id}
-                    className={`hunter-attack-card${selectedAttackId === item.id ? " selected" : ""}${unlocked ? "" : " locked"}`}
-                    type="button"
-                    disabled={!unlocked || !active}
-                    aria-pressed={selectedAttackId === item.id}
-                    onClick={() => chooseAttack(item)}
-                  >
-                    <span className="hunter-attack-icon">
-                      {item.style === "quick" ? (
-                        <Zap size={15} />
-                      ) : item.style === "combo" ? (
-                        <Swords size={15} />
-                      ) : (
-                        <Flame size={15} />
-                      )}
-                    </span>
-                    <span className="hunter-attack-copy">
-                      <strong>{item.name}</strong>
-                      <small>
-                        {item.hits} HIT{item.hits === 1 ? "" : "S"} <b>·</b>{" "}
-                        BASE DMG {item.damage}
-                      </small>
-                    </span>
-                    <span className="hunter-attack-unlock">
-                      {unlocked
-                        ? selectedAttackId === item.id
-                          ? "ACTIVE"
-                          : "READY"
-                        : `UNLOCK · ${item.unlockAfter} COMBOS`}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-            <p className="hunter-unlock-note">
-              Land attacks to unlock heavier techniques. Speed raises damage;
-              clean typing weakens the counterattack.
-            </p>
-          </section>
-        </aside>
       </div>
 
       <section
@@ -717,6 +656,102 @@ export default function TypingHunter() {
           </span>
         </div>
       </section>
+
+        <aside className="hunter-side-column">
+          <section
+            className="panel hunter-player-panel"
+            aria-label="Hunter status"
+          >
+            <div className="hunter-panel-heading">
+              <span>
+                <Shield size={15} /> HUNTER STATUS
+              </span>
+              <span>RANK 01</span>
+            </div>
+            <div className="hunter-field-stats">
+              <div>
+                <span>ATTACK SPEED</span>
+                <strong>
+                  {liveMetrics.wpm.toFixed(1)} <small>WPM</small>
+                </strong>
+              </div>
+              <div>
+                <span>SEQUENCE ACC.</span>
+                <strong>
+                  {liveMetrics.accuracy.toFixed(1)}
+                  <small>%</small>
+                </strong>
+              </div>
+              <div>
+                <span>ERRORS</span>
+                <strong>{errors.toString().padStart(2, "0")}</strong>
+              </div>
+              <div>
+                <span>COMBOS</span>
+                <strong>{completedAttacks.toString().padStart(2, "0")}</strong>
+              </div>
+            </div>
+          </section>
+
+          <section
+            className="panel hunter-attacks-panel"
+            aria-label="Combat techniques"
+          >
+            <div className="hunter-panel-heading">
+              <span>
+                <Swords size={15} /> COMBAT TECHNIQUES
+              </span>
+              <span>
+                {available.length} / {hunterAttacks.length} OPEN
+              </span>
+            </div>
+            <div className="hunter-attack-list">
+              {hunterAttacks.map((item) => {
+                const unlocked = available.some(
+                  (entry) => entry.id === item.id,
+                );
+                return (
+                  <button
+                    key={item.id}
+                    className={`hunter-attack-card${selectedAttackId === item.id ? " selected" : ""}${unlocked ? "" : " locked"}`}
+                    type="button"
+                    disabled={!unlocked || !active}
+                    aria-pressed={selectedAttackId === item.id}
+                    onClick={() => chooseAttack(item)}
+                  >
+                    <span className="hunter-attack-icon">
+                      {item.style === "quick" ? (
+                        <Zap size={15} />
+                      ) : item.style === "combo" ? (
+                        <Swords size={15} />
+                      ) : (
+                        <Flame size={15} />
+                      )}
+                    </span>
+                    <span className="hunter-attack-copy">
+                      <strong>{item.name}</strong>
+                      <small>
+                        {item.hits} HIT{item.hits === 1 ? "" : "S"} <b>·</b>{" "}
+                        BASE DMG {item.damage}
+                      </small>
+                    </span>
+                    <span className="hunter-attack-unlock">
+                      {unlocked
+                        ? selectedAttackId === item.id
+                          ? "ACTIVE"
+                          : "READY"
+                        : `UNLOCK · ${item.unlockAfter} COMBOS`}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="hunter-unlock-note">
+              Land attacks to unlock heavier techniques. Speed raises damage;
+              clean typing weakens the counterattack.
+            </p>
+          </section>
+        </aside>
 
       {lastMetrics.wpm > 0 && phase !== "player-turn" && (
         <p className="hunter-performance-note">

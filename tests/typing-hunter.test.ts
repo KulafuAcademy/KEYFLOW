@@ -5,6 +5,7 @@ import {
   calculateCounterDamage,
   calculateHunterDamage,
   calculateHunterMetrics,
+  calculateHunterStrikeDuration,
   hunterAttacks,
 } from "../src/lib/typing-hunter";
 
@@ -37,4 +38,11 @@ test("faster and cleaner sequences deal more damage and reduce retaliation", () 
   assert.ok(calculateHunterDamage(44, fast) > calculateHunterDamage(44, slow));
   assert.equal(calculateCounterDamage(fast), 8);
   assert.equal(calculateCounterDamage(slow), 18);
+});
+
+test("multi-hit attacks hold the impact phase long enough for each slash", () => {
+  assert.equal(calculateHunterStrikeDuration(1), 650);
+  assert.equal(calculateHunterStrikeDuration(8), 1630);
+  assert.equal(calculateHunterStrikeDuration(12), 1900);
+  assert.equal(calculateHunterStrikeDuration(0), 650);
 });

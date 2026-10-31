@@ -79,6 +79,11 @@ export function calculateCounterDamage(metrics: HunterMetrics): number {
   return 18;
 }
 
+export function calculateHunterStrikeDuration(hits: number): number {
+  const strikeCount = Math.max(1, Math.floor(hits));
+  return Math.min(1900, 650 + (strikeCount - 1) * 140);
+}
+
 export function availableHunterAttacks(
   completedAttacks: number,
 ): HunterAttack[] {

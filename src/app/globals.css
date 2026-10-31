@@ -3564,7 +3564,7 @@ main:has(.basic-training) .session-code {
 }
 .hunter-battle-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(285px, 0.8fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   min-width: 0;
 }
@@ -3619,6 +3619,12 @@ main:has(.basic-training) .session-code {
 .hunter-health {
   min-width: 0;
 }
+.hunter-health-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(16px, 4vw, 46px);
+  padding: 2px 2px 0;
+}
 .hunter-health-label {
   margin-bottom: 5px;
   color: var(--muted);
@@ -3653,11 +3659,13 @@ main:has(.basic-training) .session-code {
 }
 .hunter-monster-stage {
   position: relative;
-  display: grid;
-  min-height: 285px;
-  place-items: center;
+  display: flex;
+  min-height: 330px;
+  align-items: flex-end;
+  justify-content: space-between;
   overflow: hidden;
-  margin-top: 14px;
+  margin-top: 12px;
+  padding: 0 clamp(14px, 5vw, 52px) 12px;
   border: 1px solid var(--line);
   background:
     radial-gradient(ellipse at 50% 78%, var(--hunter-glow), transparent 48%),
@@ -3691,12 +3699,51 @@ main:has(.basic-training) .session-code {
   filter: blur(15px);
 }
 .hunter-monster {
+  position: relative;
   z-index: 1;
-  width: min(50%, 270px);
-  min-width: 180px;
+  width: clamp(145px, 30vw, 250px);
+  min-width: 0;
   overflow: visible;
   filter: drop-shadow(0 12px 12px rgba(0, 0, 0, 0.22));
   transform-origin: 50% 85%;
+}
+.hunter-fighter {
+  position: relative;
+  z-index: 1;
+  width: clamp(126px, 23vw, 195px);
+  flex: 0 0 auto;
+  overflow: visible;
+  filter: drop-shadow(0 12px 12px rgba(0, 0, 0, 0.24));
+  transform-origin: 50% 88%;
+}
+.fighter-shadow { fill: rgba(0, 0, 0, 0.23); }
+.fighter-cloak,
+.fighter-body { stroke: color-mix(in srgb, var(--text), #111 35%); stroke-width: 4; stroke-linejoin: round; }
+.fighter-cloak { fill: color-mix(in srgb, var(--hunter-accent), #251712 40%); }
+.fighter-body { fill: #34434a; }
+.fighter-leg,
+.fighter-arm { fill: none; stroke: #34383d; stroke-width: 19; stroke-linecap: round; stroke-linejoin: round; }
+.fighter-boot,
+.fighter-glove { fill: #202226; stroke: var(--line); stroke-width: 3; stroke-linejoin: round; }
+.fighter-belt { fill: #c18b4a; stroke: #33281e; stroke-width: 3; }
+.fighter-neck { fill: #b9805b; }
+.fighter-face { fill: #c28d67; stroke: #7f5743; stroke-width: 3; }
+.fighter-hair { fill: #29252b; stroke: #171519; stroke-width: 3; stroke-linejoin: round; }
+.fighter-band { fill: var(--hunter-accent); }
+.fighter-eye { fill: none; stroke: #241c19; stroke-width: 3; stroke-linecap: round; }
+.fighter-sword { fill: #e5e9e9; stroke: #8f9da0; stroke-width: 2; stroke-linejoin: round; }
+.fighter-sword-edge { stroke: #fff; stroke-width: 2; }
+.fighter-hilt { fill: none; stroke: #d39a45; stroke-width: 4; stroke-linecap: round; }
+.hunter-clash-mark {
+  position: absolute;
+  z-index: 0;
+  top: 43%;
+  left: 50%;
+  color: var(--hunter-accent);
+  font: 700 8px var(--font-mono), monospace;
+  letter-spacing: 0.18em;
+  opacity: 0.48;
+  transform: translate(-50%, -50%);
 }
 .monster-shadow {
   fill: rgba(0, 0, 0, 0.2);
@@ -3812,9 +3859,18 @@ main:has(.basic-training) .session-code {
 .hunter-monster-idle {
   animation: hunter-idle 2.6s ease-in-out infinite;
 }
+.hunter-fighter { animation: hunter-idle 2.6s ease-in-out infinite; }
+.hunter-fighter-impact { animation: hunter-lunge 380ms cubic-bezier(0.18, 0.78, 0.3, 1) both; }
+.hunter-fighter-combo { animation: hunter-eight-strikes 1.35s linear both; }
+.hunter-fighter-monster-charge { animation: hunter-brace 650ms ease-in-out infinite alternate; }
+.hunter-fighter-monster-attack { animation: hunter-recoil 540ms ease-out both; }
+.hunter-fighter-victory { animation: hunter-victory 850ms ease-out both; }
+.hunter-fighter-defeat { animation: hunter-fall 600ms ease-in both forwards; }
 .hunter-monster-hurt {
   animation: hunter-recoil 520ms ease-out both;
 }
+.hunter-stage-impact-8 .hunter-monster-hurt,
+.hunter-stage-impact-12 .hunter-monster-hurt { animation: hunter-eight-recoil 1.35s linear both; }
 .hunter-monster-charge {
   animation: hunter-charge 660ms ease-in-out infinite alternate;
 }
@@ -3867,21 +3923,21 @@ main:has(.basic-training) .session-code {
 .hunter-slash-effects {
   position: absolute;
   z-index: 2;
-  inset: 14% 25% 23%;
+  inset: 0;
   pointer-events: none;
 }
 .hunter-slash-effects i {
   position: absolute;
-  top: 44%;
-  left: 48%;
-  width: 70px;
-  height: 3px;
+  top: 42%;
+  left: 63%;
+  width: clamp(58px, 10vw, 104px);
+  height: 4px;
   border-radius: 4px;
   background: linear-gradient(90deg, transparent, #fff3d2 46%, var(--hunter-accent));
   box-shadow: 0 0 12px var(--hunter-accent);
   transform: rotate(calc((var(--slash-index, 0) * 37deg) - 35deg)) scaleX(0.2);
   transform-origin: center;
-  animation: hunter-slash 460ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation: hunter-slash 130ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 .hunter-slash-effects i:nth-child(2) { --slash-index: 1; }
 .hunter-slash-effects i:nth-child(3) { --slash-index: 2; }
@@ -4243,6 +4299,34 @@ main:has(.basic-training) .session-code {
   28% { transform: translateY(-9px) scale(1.08); filter: brightness(1.5); }
   62% { transform: translateY(1px) scale(0.98); }
 }
+@keyframes hunter-lunge {
+  0% { transform: translateX(0) rotate(0); }
+  45% { transform: translateX(54px) rotate(-7deg) scale(1.04); }
+  100% { transform: translateX(0) rotate(0); }
+}
+@keyframes hunter-eight-strikes {
+  0%, 12.5%, 25%, 37.5%, 50%, 62.5%, 75%, 87.5%, 100% { transform: translateX(0) rotate(0); }
+  6.25% { transform: translateX(38px) rotate(-8deg) scale(1.04); }
+  18.75% { transform: translateX(44px) rotate(7deg) scale(1.05); }
+  31.25% { transform: translateX(40px) rotate(-10deg) scale(1.04); }
+  43.75% { transform: translateX(46px) rotate(8deg) scale(1.05); }
+  56.25% { transform: translateX(40px) rotate(-7deg) scale(1.04); }
+  68.75% { transform: translateX(46px) rotate(9deg) scale(1.05); }
+  81.25% { transform: translateX(40px) rotate(-8deg) scale(1.04); }
+  93.75% { transform: translateX(47px) rotate(7deg) scale(1.05); }
+}
+@keyframes hunter-eight-recoil {
+  0%, 12.5%, 25%, 37.5%, 50%, 62.5%, 75%, 87.5%, 100% { transform: translateX(0) rotate(0); }
+  6.25%, 31.25%, 56.25%, 81.25% { transform: translateX(8px) rotate(2deg); filter: brightness(1.7); }
+  18.75%, 43.75%, 68.75%, 93.75% { transform: translateX(11px) rotate(-2deg); filter: brightness(1.9); }
+}
+@keyframes hunter-brace { to { transform: translateX(-7px) scale(0.98); } }
+@keyframes hunter-victory {
+  0% { transform: translateY(0); }
+  35% { transform: translateY(-24px) rotate(-4deg); }
+  100% { transform: translateY(0); }
+}
+@keyframes hunter-fall { to { opacity: 0.48; transform: rotate(-72deg) translate(-18px, 18px) scale(0.78); } }
 @keyframes hunter-fire-burst {
   0% { opacity: 0; transform: scale(0.35) translateY(14px); }
   25% { opacity: 1; }
@@ -4299,10 +4383,10 @@ main:has(.basic-training) .session-code {
 }
 @media (max-width: 960px) {
   .hunter-battle-grid {
-    grid-template-columns: minmax(0, 1.2fr) minmax(255px, 0.85fr);
+    grid-template-columns: minmax(0, 1fr);
   }
   .hunter-monster-stage {
-    min-height: 250px;
+    min-height: 300px;
   }
 }
 @media (max-width: 760px) {
@@ -4348,10 +4432,13 @@ main:has(.basic-training) .session-code {
   .hunter-monster-stage {
     min-height: 240px;
   }
+  .hunter-fighter { width: clamp(112px, 30vw, 150px); }
   .hunter-monster {
-    width: 64%;
-    min-width: 155px;
+    width: clamp(132px, 36vw, 168px);
   }
+  .hunter-health-row { gap: 14px; }
+  .hunter-health-label { font-size: 7px; }
+  .hunter-clash-mark { font-size: 7px; }
   .hunter-monster-caption {
     align-items: flex-start;
     flex-direction: column;
@@ -4383,6 +4470,7 @@ main:has(.basic-training) .session-code {
 }
 @media (prefers-reduced-motion: reduce) {
   .hunter-monster,
+  .hunter-fighter,
   .hunter-monster-roar,
   .monster-fire,
   .hunter-stage-glow,
