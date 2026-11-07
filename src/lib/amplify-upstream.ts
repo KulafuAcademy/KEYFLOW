@@ -1,11 +1,15 @@
 import { UUID, parseBankQuestion } from "./amplify";
+import {
+  AMPLIFY_ORIGIN,
+  upstreamHeaders,
+  writingBankPath,
+} from "./amplify-protection";
 export const noStore = {
   "Cache-Control": "no-store, max-age=0",
   "X-Content-Type-Options": "nosniff",
 };
 export function upstreamOrigin(
-  value = process.env.AMPLIFY_API_ORIGIN ||
-    "https://amplify-eight-delta.vercel.app",
+  value = process.env.AMPLIFY_API_ORIGIN || AMPLIFY_ORIGIN,
 ) {
   const u = new URL(value);
   if (
@@ -28,12 +32,15 @@ export async function fetchUpstream(
   fetcher: typeof fetch = fetch,
   accessToken?: string | null,
 ) {
-  return fetcher(`${upstreamOrigin()}${path}`, {
+  const origin = upstreamOrigin();
+  const safePath = writingBankPath(path);
+  const headers = await upstreamHeaders(origin, accessToken);
+  return fetcher(`${origin}${safePath}`, {
     method: "GET",
     cache: "no-store",
     redirect: "error",
     signal: AbortSignal.timeout(12000),
-    headers: { Accept: "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
+    headers,
   });
 }
 export async function getBankPage(
@@ -92,7 +99,11 @@ export async function getBankQuestion(
       { status: 400, headers: noStore },
     );
   try {
-    const r = await fetchUpstream(`/api/writing-questions/${id}`, fetcher, accessToken);
+    const r = await fetchUpstream(
+      `/api/writing-questions/${id}`,
+      fetcher,
+      accessToken,
+    );
     if (r.status === 404)
       return Response.json(
         {

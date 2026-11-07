@@ -189,9 +189,7 @@ test("server gateway only uses GET, no-store and a fixed origin; strips hidden r
   assert.equal(result.status, 200);
   assert.equal((await result.json()).questions.length, 1);
   assert.ok(
-    url.startsWith(
-      "https://amplify-eight-delta.vercel.app/api/writing-questions",
-    ),
+    url.startsWith("https://amplify.aica.academy/api/writing-questions"),
   );
   assert.equal(options?.method, "GET");
   assert.equal(options?.cache, "no-store");
