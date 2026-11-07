@@ -1,10 +1,21 @@
+import {previewOrigin} from './hub-runtime';
 import { getVercelOidcToken } from "@vercel/oidc";
 
 export const AMPLIFY_ORIGIN = "https://amplify.aica.academy";
 type ProtectionOptions = {
   onVercel?: boolean;
+  environment?: Record<string,string|undefined>;
   readOidcToken?: () => string | Promise<string>;
 };
+
+/** Preview clients must never forward their identity to Production by accident. */
+export function approvedAmplifyOrigin(origin:string,env:Record<string,string|undefined>=process.env){
+ if(env.HUB_SSO_MODE==='preview'){
+  if(env.VERCEL_ENV!=='preview')return false;
+  try{return origin===previewOrigin(env.HUB_AMPLIFY_ORIGIN);}catch{return false;}
+ }
+ return origin===AMPLIFY_ORIGIN;
+}
 
 /** Server-to-server identity only. Never forward the browser's Vercel cookie. */
 export async function upstreamHeaders(
@@ -12,13 +23,14 @@ export async function upstreamHeaders(
   staffAccessToken?: string | null,
   {
     onVercel = process.env.VERCEL === "1",
+    environment = process.env,
     readOidcToken = getVercelOidcToken,
   }: ProtectionOptions = {},
 ): Promise<Headers> {
   const headers = new Headers({ Accept: "application/json" });
   if (onVercel) {
     // Avoid leaking a project credential to an accidental origin override.
-    if (origin !== AMPLIFY_ORIGIN) throw Error("Unexpected protected upstream");
+    if (!approvedAmplifyOrigin(origin,environment)) throw Error("Unexpected protected upstream");
     const token = await readOidcToken();
     if (!token) throw Error("Protected upstream identity is unavailable");
     headers.set("x-vercel-trusted-oidc-idp-token", token);

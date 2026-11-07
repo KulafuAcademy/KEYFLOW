@@ -197,6 +197,23 @@ test("server gateway only uses GET, no-store and a fixed origin; strips hidden r
   assert.equal(result.headers.get("cache-control"), "no-store, max-age=0");
   assert.throws(() => upstreamOrigin("https://amplify.example/path"));
   assert.throws(() => upstreamOrigin("http://169.254.169.254"));
+  assert.equal(
+    upstreamOrigin(undefined, {
+      HUB_SSO_MODE: "preview",
+      HUB_AMPLIFY_ORIGIN: "https://amplify-hub-auth-preview-kulafuacademys-projects.vercel.app",
+      AMPLIFY_API_ORIGIN: "https://amplify.aica.academy",
+    }),
+    "https://amplify-hub-auth-preview-kulafuacademys-projects.vercel.app",
+  );
+  assert.equal(
+    upstreamOrigin(undefined, {
+      HUB_SSO_MODE: "production",
+      HUB_AMPLIFY_ORIGIN: "https://amplify-hub-auth-preview-kulafuacademys-projects.vercel.app",
+      AMPLIFY_API_ORIGIN: "https://amplify.aica.academy",
+    }),
+    "https://amplify.aica.academy",
+  );
+  assert.throws(() => upstreamOrigin(undefined, { HUB_SSO_MODE: "preview" }));
 });
 test("detail load rechecks publication; hidden/outage failures cannot replace an answer", async () => {
   assert.equal(

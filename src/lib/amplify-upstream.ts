@@ -9,9 +9,15 @@ export const noStore = {
   "X-Content-Type-Options": "nosniff",
 };
 export function upstreamOrigin(
-  value = process.env.AMPLIFY_API_ORIGIN || AMPLIFY_ORIGIN,
+  value?: string,
+  env: Record<string, string | undefined> = process.env,
 ) {
-  const u = new URL(value);
+  const configured = value ??
+    (env.HUB_SSO_MODE === "preview"
+      ? env.HUB_AMPLIFY_ORIGIN
+      : env.AMPLIFY_API_ORIGIN || AMPLIFY_ORIGIN);
+  if (!configured) throw Error("Invalid AMPLIFY origin");
+  const u = new URL(configured);
   if (
     u.username ||
     u.password ||

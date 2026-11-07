@@ -1,3 +1,4 @@
+import {localSsoEnabled,readSsoSession,SESSION_COOKIE} from '@/lib/hub-sso';
 import "server-only";
 
 import { createServerClient } from "@supabase/ssr";
@@ -38,6 +39,10 @@ export async function createStaffServerClient() {
 }
 
 export async function requireStaff() {
+  if(localSsoEnabled()){
+    const session=await readSsoSession((await cookies()).get(SESSION_COOKIE)?.value);
+    return session?{identity:{id:session.user.id,email:session.user.email??null},accessToken:session.accessToken,response:null}:{identity:null,accessToken:null,response:Response.json({error:'Hub sign-in is required.'},{status:401})};
+  }
   if (publicLearningAccessEnabled()) return { identity: null, accessToken: null, response: null };
   const client = await createStaffServerClient();
   if (!client) return { identity: null, accessToken: null, response: Response.json({ error: "Staff authentication is not configured." }, { status: 503 }) };

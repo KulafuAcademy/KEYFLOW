@@ -1,9 +1,25 @@
+import {localSsoEnabled,config as ssoConfig,readSsoSession,SESSION_COOKIE} from '@/lib/hub-sso-session';
 import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
 import { publicLearningAccessEnabled } from "@/lib/public-learning-access";
 
 export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
+  if (localSsoEnabled()) {
+    try {
+      const c=ssoConfig();if(request.headers.get('host')!==new URL(c.origin).host)return new NextResponse('Invalid host',{status:400});
+      if(['/staff/sso/start','/auth/hub-callback','/staff/logout'].includes(path))return NextResponse.next();
+      if(path==='/staff/session')return NextResponse.json({error:'Use the local Hub to sign in.'},{status:403});
+      const session=await readSsoSession(request.cookies.get(SESSION_COOKIE)?.value);
+      if(session)return NextResponse.next();
+      if(path.startsWith('/api/'))return NextResponse.json({error:'Hub sign-in is required.'},{status:401});
+      return NextResponse.redirect(new URL('/staff/sso/start',c.origin));
+    }catch{return new NextResponse('Local Hub SSO is unavailable.',{status:503});}
+  }
+  // Preserve the old matcher's behaviour when this local-only experiment is off.
+  if(path.startsWith('/_next/image'))return NextResponse.next();
+  if(path.includes('.'))return NextResponse.next();
+
   if (publicLearningAccessEnabled()) {
     if (path === "/staff/login") return NextResponse.redirect(new URL("/", request.url));
     return NextResponse.next();
@@ -24,4 +40,4 @@ export async function proxy(request: NextRequest) {
   return NextResponse.redirect(new URL(user ? "/staff/login?reason=staff" : "/staff/login", request.url));
 }
 
-export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)"] };
+export const config = { matcher: ["/((?!_next/static|favicon.ico).*)"] };

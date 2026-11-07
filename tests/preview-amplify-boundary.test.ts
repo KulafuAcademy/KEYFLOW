@@ -1,0 +1,7 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {approvedAmplifyOrigin,upstreamHeaders,AMPLIFY_ORIGIN} from '../src/lib/amplify-protection';
+const origin='https://amplify-preview-kulafuacademys-projects.vercel.app';
+const environment={HUB_SSO_MODE:'preview',VERCEL_ENV:'preview',HUB_AMPLIFY_ORIGIN:origin};
+test('Preview Writing gateway targets only its explicitly registered AMPLIFY Preview',()=>{assert.equal(approvedAmplifyOrigin(origin,environment),true);for(const target of [AMPLIFY_ORIGIN,'https://evil.example','https://another-preview-kulafuacademys-projects.vercel.app'])assert.equal(approvedAmplifyOrigin(target,environment),false);assert.equal(approvedAmplifyOrigin(origin,{}),false);assert.equal(approvedAmplifyOrigin(AMPLIFY_ORIGIN,{}),true);});
+test('wrong/missing Preview settings fail before reading or sending platform credentials',async()=>{let calls=0;const readOidcToken=async()=>{calls++;return 'SYNTHETIC_PLATFORM_TOKEN';};for(const target of [AMPLIFY_ORIGIN,'https://evil.example'])await assert.rejects(()=>upstreamHeaders(target,'synthetic-user-token',{onVercel:true,readOidcToken,environment}));assert.equal(calls,0);const headers=await upstreamHeaders(origin,'synthetic-user-token',{onVercel:true,readOidcToken,environment});assert.equal(headers.get('x-vercel-trusted-oidc-idp-token'),'SYNTHETIC_PLATFORM_TOKEN');assert.equal(headers.get('Authorization'),'Bearer synthetic-user-token');});
